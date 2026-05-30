@@ -1,0 +1,3288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MouseLog — Colony Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#181c27;--surface2:#1e2333;--border:#2a2f42;
+  --accent:#4ade80;--accent2:#22d3ee;--accent3:#f59e0b;--danger:#f87171;
+  --purple:#c084fc;--pink:#f472b6;
+  --text:#e2e8f0;--muted:#64748b;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px}
+
+/* NAV */
+.nav{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);background:var(--surface);padding:0 20px;position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.nav-logo{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:2px;padding:13px 20px 13px 0;border-right:1px solid var(--border);margin-right:14px}
+.nav-logo span{color:var(--muted)}
+.nav-tabs{display:flex;gap:0}
+.nav-tab{font-family:var(--mono);font-size:11px;letter-spacing:.5px;padding:13px 16px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-tab.active.t2{color:var(--accent2);border-bottom-color:var(--accent2)}
+.nav-tab.active.t3{color:var(--purple);border-bottom-color:var(--purple)}
+.nav-tab.active.t0{color:var(--accent3);border-bottom-color:var(--accent3)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;padding-left:14px}
+.save-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);transition:background .3s}
+.save-dot.saving{background:var(--accent3)}
+.save-dot.error{background:var(--danger)}
+.save-label{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.stats-row{display:flex;gap:18px;border-left:1px solid var(--border);padding-left:14px}
+.stat{text-align:center}
+.stat-n{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--accent);line-height:1}
+.stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* PAGES */
+.page{display:none}.page.active{display:block}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:8px;padding:9px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+input[type=text],select{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:12px;padding:5px 9px;border-radius:4px;outline:none}
+input[type=text]:focus,select:focus{border-color:var(--accent2)}
+select option{background:var(--surface2)}
+.btn{font-family:var(--mono);font-size:11px;font-weight:500;padding:5px 13px;border-radius:4px;border:1px solid;cursor:pointer;letter-spacing:.5px;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#000;border-color:var(--accent)}
+.btn-primary:hover{background:#22c55e}
+.btn-outline{background:transparent;color:var(--accent2);border-color:var(--accent2)}
+.btn-outline:hover{background:rgba(34,211,238,.08)}
+.btn-purple{background:transparent;color:var(--purple);border-color:var(--purple)}
+.btn-purple:hover{background:rgba(192,132,252,.08)}
+.btn-pink{background:transparent;color:var(--pink);border-color:var(--pink)}
+.btn-pink:hover{background:rgba(244,114,182,.08)}
+.btn-muted{background:transparent;color:var(--muted);border-color:var(--border)}
+.btn-muted:hover{color:var(--text);border-color:var(--muted)}
+.btn-danger{background:transparent;color:var(--danger);border-color:var(--danger)}
+.btn-danger:hover{background:rgba(248,113,113,.08)}
+.spacer{flex:1}
+.tag{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:2px;cursor:pointer;border:1px solid var(--border);color:var(--muted);transition:all .15s}
+.tag.active{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.08)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;padding:0 20px 40px}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+th{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}
+th.sort-asc::after{content:' ↑'}th.sort-desc::after{content:' ↓'}
+td{padding:6px 8px;border-bottom:1px solid rgba(42,47,66,.5);vertical-align:middle;white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02)}
+/* gene columns */
+th.gene-col{color:var(--accent3);font-size:9px}
+td.gene-cell{text-align:center;font-family:var(--mono);font-size:12px}
+.gene-pos{color:var(--accent)}
+.gene-neg{color:var(--muted);opacity:.5}
+.gene-het{color:var(--accent3)}
+.gene-unk{color:var(--purple)}
+
+/* badges */
+.cage-badge{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:2px}
+.cage-breeding{background:rgba(244,114,182,.1);color:var(--pink);border:1px solid rgba(244,114,182,.25)}
+.cage-holding{background:rgba(34,211,238,.1);color:var(--accent2);border:1px solid rgba(34,211,238,.2)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot-active{background:var(--accent)}.dot-retired{background:var(--muted)}.dot-deceased{background:var(--danger)}
+.age-badge{font-family:var(--mono);font-size:11px}
+.age-young{color:#86efac}.age-mid{color:var(--accent3)}.age-old{color:var(--danger)}
+.row-actions{display:flex;gap:3px;opacity:0;transition:opacity .1s}
+tr:hover .row-actions{opacity:1}
+.icon-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:2px 6px;cursor:pointer;font-size:10px;font-family:var(--mono);transition:all .15s}
+.icon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.icon-btn.del:hover{border-color:var(--danger);color:var(--danger)}
+
+
+/* DASHBOARD */
+.db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:20px 20px 0}
+.db-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 16px;text-align:center}
+.db-card-n{font-family:var(--mono);font-size:32px;font-weight:500;line-height:1;margin-bottom:6px}
+.db-card-l{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.db-section{padding:20px 20px 0}
+.db-section-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:12px}
+.db-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 20px 0}
+.db-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.db-panel-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:14px}
+/* age bar chart */
+.age-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px}
+.age-bar-label{font-family:var(--mono);color:var(--muted);width:44px;text-align:right;flex-shrink:0}
+.age-bar-track{flex:1;height:14px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.age-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s}
+.age-bar-fill.old{background:var(--danger)}
+.age-bar-count{font-family:var(--mono);font-size:10px;color:var(--muted);width:22px}
+/* upcoming tasks */
+.task-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(42,47,66,.6);font-size:12px;cursor:pointer}
+.task-row:hover{background:rgba(255,255,255,.02)}
+.task-row:last-child{border-bottom:none}
+.task-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.task-mid{font-family:var(--mono);font-size:11px;color:var(--accent2);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-label{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-due{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+/* cage capacity bars */
+
+/* gt donut-style bars */
+.gt-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.gt-label{font-size:11px;color:var(--muted);width:60px}
+.gt-bar-track{flex:1;height:16px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.gt-bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.gt-count{font-family:var(--mono);font-size:11px;color:var(--text);width:30px;text-align:right}
+
+/* CAGE CARDS */
+.cage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;padding:16px 20px 40px}
+.cage-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color .15s}
+.cage-card.breeding{border-left:3px solid var(--pink)}
+.cage-card.holding{border-left:3px solid var(--accent2)}
+.cage-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.cage-card-id{font-family:var(--mono);font-size:14px;font-weight:500}
+.cage-card-id.breeding{color:var(--pink)}.cage-card-id.holding{color:var(--accent2)}
+.cage-card-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.cage-card:hover .cage-card-actions{opacity:1}
+.cage-stat-row{display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.cage-stat strong{color:var(--text)}
+.occ-chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
+.occ-chip{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:2px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer}
+.occ-chip:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* COHORT CARDS */
+.cohort-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:16px 20px 40px}
+.cohort-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.cohort-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cohort-name{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--purple)}
+.cohort-actions{display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.cohort-card:hover .cohort-actions{opacity:1}
+.gene-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.gene-tag{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;background:rgba(245,158,11,.1);color:var(--accent3);border:1px solid rgba(245,158,11,.25)}
+.cohort-meta{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6}
+
+/* EMPTY */
+.empty{text-align:center;padding:70px 20px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:.3}
+.empty p{margin-top:5px;font-size:12px}
+
+/* MODALS */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:620px;max-height:92vh;overflow-y:auto;padding:26px}
+.modal h2{font-family:var(--mono);font-size:13px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:3px;font-family:var(--mono)}
+.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 9px;border-radius:4px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent2)}
+.field textarea{resize:vertical;min-height:58px}
+.full{grid-column:1/-1}
+.sdiv{grid-column:1/-1;font-family:var(--mono);font-size:10px;color:var(--accent2);text-transform:uppercase;letter-spacing:2px;padding:8px 0 0;border-top:1px solid var(--border);margin-top:2px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* GENE STATUS GRID inside animal modal */
+.gene-status-grid{display:grid;gap:6px;margin-top:4px}
+.gene-status-row{background:var(--surface2);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.gene-status-header{display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);background:rgba(245,158,11,.06)}
+.gene-status-name{font-family:var(--mono);font-size:11px;color:var(--accent3);flex:1}
+.gene-status-conclusion{font-family:var(--mono);font-size:10px;padding:1px 7px;border-radius:2px;border:1px solid}
+.gene-status-alleles{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.gene-allele-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-top:1px solid rgba(42,47,66,.5)}
+.gene-allele-label{font-size:10px;color:var(--muted);width:60px;font-family:var(--mono)}
+.gene-status-btns{display:flex;gap:3px}
+.gsb{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;min-width:32px;text-align:center}
+.gsb:hover{border-color:var(--muted);color:var(--text)}
+.gsb.sel-pos{background:rgba(74,222,128,.15);border-color:var(--accent);color:var(--accent)}
+.gsb.sel-neg{background:rgba(100,116,139,.15);border-color:#64748b;color:#94a3b8}
+.gsb.sel-unk{background:rgba(192,132,252,.15);border-color:var(--purple);color:var(--purple)}
+/* table gene columns — dual cell */
+.gene-dual{display:flex;gap:2px;justify-content:center;align-items:center}
+.gene-dual-tg{font-family:var(--mono);font-size:11px}
+.gene-dual-wt{font-family:var(--mono);font-size:11px;opacity:.55}
+
+/* COHORT MODAL */
+.cohort-modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:480px;padding:26px}
+.cohort-modal h2{font-family:var(--mono);font-size:13px;color:var(--purple);margin-bottom:18px;letter-spacing:1px}
+.gene-list-editor{margin-top:6px}
+.gene-list-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.gene-list-item input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 9px;border-radius:4px;outline:none}
+.gene-list-item input:focus{border-color:var(--accent2)}
+.remove-gene{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:4px 8px;cursor:pointer;font-size:11px;font-family:var(--mono);transition:all .15s}
+.remove-gene:hover{border-color:var(--danger);color:var(--danger)}
+.add-gene-row{margin-top:4px}
+
+/* DETAIL */
+.detail-modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:540px;max-height:90vh;overflow-y:auto;padding:26px}
+.detail-modal h2{font-family:var(--mono);font-size:13px;color:var(--accent2);margin-bottom:16px;letter-spacing:1px}
+.detail-section{margin-bottom:16px}
+.detail-section h3{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:7px;padding-top:10px;border-top:1px solid var(--border)}
+.detail-row{display:flex;gap:10px;margin-bottom:5px;font-size:12px}
+.dk{color:var(--muted);width:130px;flex-shrink:0}.dv{color:var(--text);flex:1;word-break:break-word;white-space:pre-wrap}
+.gene-detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:4px}
+.gene-detail-cell{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center}
+.gene-detail-name{font-family:var(--mono);font-size:10px;color:var(--accent3)}
+.gene-detail-val{font-family:var(--mono);font-size:13px;font-weight:500}
+.detail-footer{display:flex;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* IMPORT */
+.import-modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:520px;padding:26px}
+.import-modal h2{font-family:var(--mono);font-size:13px;color:var(--purple);margin-bottom:6px;letter-spacing:1px}
+.import-modal>p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.7}
+.drop-zone{border:1px dashed var(--purple);border-radius:6px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px}
+.drop-zone:hover,.drop-zone.drag{background:rgba(192,132,252,.06)}
+.drop-zone p{font-size:12px;color:var(--muted);margin:0}
+.drop-zone strong{color:var(--purple)}
+.col-map-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px}
+.col-map-row{display:flex;align-items:center;gap:6px}
+.col-map-row span{color:var(--muted);width:110px;flex-shrink:0;font-family:var(--mono);font-size:10px}
+.col-map-row select{flex:1;font-size:11px;padding:3px 6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;outline:none}
+.import-preview{font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:12px;max-height:70px;overflow-y:auto;line-height:1.6}
+.mode-toggle{display:flex;gap:6px;margin-bottom:14px}
+.mode-btn{flex:1;font-family:var(--mono);font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;text-align:center}
+.mode-btn.active{border-color:var(--purple);color:var(--purple);background:rgba(192,132,252,.08)}
+
+/* NOTIFY */
+
+/* COMPLETE TASK MODAL */
+.complete-modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:460px;padding:26px}
+.complete-modal h2{font-family:var(--mono);font-size:13px;color:var(--accent);margin-bottom:6px;letter-spacing:1px}
+.complete-task-label{font-size:13px;color:var(--text);margin-bottom:18px;padding:10px 12px;background:var(--surface2);border-radius:4px;border-left:3px solid var(--accent)}
+.complete-field{margin-bottom:12px}
+.complete-field label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:4px;font-family:var(--mono)}
+.complete-field input,.complete-field select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 10px;border-radius:4px;outline:none}
+.complete-field input:focus,.complete-field select:focus{border-color:var(--accent)}
+.complete-effects{background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:4px;padding:10px 12px;margin-bottom:16px;font-size:11px;color:var(--accent);line-height:1.7}
+.complete-effects-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+
+
+.bulk-op-tab{font-family:var(--mono);font-size:11px;padding:8px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.bulk-op-tab:hover{color:var(--text)}
+.bulk-op-tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.bulk-panel{min-height:80px}
+
+
+/* CAGE HISTORY */
+.cage-card.retired{border-left:3px solid var(--muted);opacity:.85}
+.cage-card.retired .cage-card-id{color:var(--muted)}
+.retired-badge{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;background:rgba(100,116,139,.15);border:1px solid var(--muted);color:var(--muted);margin-left:6px;vertical-align:middle}
+.history-section-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:16px 20px 8px;border-top:1px solid var(--border);margin-top:4px}
+.retire-modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:440px;padding:26px}
+.retire-modal h2{font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:16px;letter-spacing:1px}
+
+
+/* SACRIFICE TIMELINE */
+.sac-day-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;cursor:pointer;padding:3px 0;border-bottom:1px solid rgba(42,47,66,.4)}
+.sac-day-row:last-child{border-bottom:none}
+.sac-day-row:hover{background:rgba(255,255,255,.02)}
+.sac-date{font-family:var(--mono);font-size:11px;color:var(--muted);width:80px;flex-shrink:0}
+.sac-date.soon{color:var(--danger)}
+.sac-ids{flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sac-count{font-family:var(--mono);font-size:10px;color:var(--danger);width:20px;text-align:right;flex-shrink:0}
+
+/* PENDING GENOTYPING */
+.pgt-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(42,47,66,.4);font-size:11px;cursor:pointer}
+.pgt-row:last-child{border-bottom:none}
+.pgt-row:hover{background:rgba(255,255,255,.02)}
+.pgt-mid{font-family:var(--mono);color:var(--accent2);width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pgt-genes{flex:1;display:flex;flex-wrap:wrap;gap:3px}
+.pgt-gene{font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:2px;background:rgba(192,132,252,.1);border:1px solid rgba(192,132,252,.3);color:var(--purple)}
+.pgt-age{font-family:var(--mono);font-size:10px;color:var(--muted);width:28px;text-align:right;flex-shrink:0}
+
+/* LITTER LOG */
+.litter-row{padding:8px 0;border-bottom:1px solid rgba(42,47,66,.4);font-size:11px}
+.litter-row:last-child{border-bottom:none}
+.litter-cage{font-family:var(--mono);color:var(--pink);font-size:11px;font-weight:500}
+.litter-meta{color:var(--muted);margin-top:2px;line-height:1.6}
+.litter-entry{color:var(--text);margin-top:2px;font-size:10px;font-family:var(--mono);color:var(--muted)}
+
+.notif{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:11px;padding:9px 16px;border-radius:4px;z-index:300;opacity:0;transform:translateY(6px);transition:all .25s;pointer-events:none}
+.notif.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<div class="notif" id="notif"></div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-logo">MOUSELOG <span>/ v3</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab t0"        id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+    <div class="nav-tab active"    id="tab-animals"  onclick="switchTab('animals')">Animals</div>
+    <div class="nav-tab t2"        id="tab-cages"    onclick="switchTab('cages')">Cages</div>
+    <div class="nav-tab t3"        id="tab-cohorts"  onclick="switchTab('cohorts')">Cohorts</div>
+  </div>
+  <div class="nav-right">
+    <div class="save-dot" id="save-dot"></div>
+    <div class="save-label" id="save-label">connecting…</div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-n" id="s-total">0</div><div class="stat-l">Total</div></div>
+      <div class="stat"><div class="stat-n" id="s-active">0</div><div class="stat-l">Active</div></div>
+      <div class="stat"><div class="stat-n" id="s-breeding">0</div><div class="stat-l">Breeding</div></div>
+      <div class="stat"><div class="stat-n" id="s-holding">0</div><div class="stat-l">Holding</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: DASHBOARD -->
+<div class="page" id="page-dashboard">
+  <!-- stat cards -->
+  <div class="db-grid" id="db-stat-cards"></div>
+
+  <!-- Row 1: Tasks + Pending Genotyping -->
+  <div class="db-two-col">
+    <div class="db-panel">
+      <div class="db-panel-title">Upcoming Tasks — next 7 days</div>
+      <div id="db-tasks"></div>
+    </div>
+    <div class="db-panel">
+      <div class="db-panel-title">Pending Genotyping <span id="db-pending-gt-count" style="color:var(--purple);font-family:var(--mono)"></span></div>
+      <div id="db-pending-gt"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Sacrifice Timeline + Age Distribution -->
+  <div class="db-two-col">
+    <div class="db-panel">
+      <div class="db-panel-title">Sacrifice Timeline — next 30 days</div>
+      <div id="db-sac-timeline"></div>
+    </div>
+    <div class="db-panel">
+      <div class="db-panel-title">Age Distribution (active)</div>
+      <div id="db-age"></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Breeding Litter Log + Genotype Distribution -->
+  <div class="db-two-col" style="padding-bottom:40px">
+    <div class="db-panel">
+      <div class="db-panel-title">Breeding — Litter Log</div>
+      <div id="db-litter"></div>
+    </div>
+    <div class="db-panel">
+      <div class="db-panel-title">Genotype Distribution</div>
+      <div id="db-gt"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TODAY'S TASKS BANNER -->
+<div id="today-banner" style="display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--accent2);letter-spacing:1px;white-space:nowrap">TODAY'S TASKS</div>
+    <div id="today-tasks-list" style="display:flex;gap:8px;flex-wrap:wrap;flex:1"></div>
+    <button class="btn btn-muted" style="font-size:10px" onclick="document.getElementById('today-banner').style.display='none'">×</button>
+  </div>
+</div>
+
+<!-- PAGE: ANIMALS -->
+<div class="page active" id="page-animals">
+  <div class="toolbar">
+    <input type="text" id="search" style="width:220px" placeholder="Search ID, cage, purpose…">
+    <select id="f-cohort"><option value="">All cohorts</option></select>
+    <select id="f-sex"><option value="">All sexes</option><option value="M">Male</option><option value="F">Female</option></select>
+    <select id="f-status"><option value="">All status</option><option value="active">Active</option><option value="retired">Retired</option><option value="deceased">Deceased</option><option value="sacrificed">Sacrificed</option></select>
+    <select id="f-cage-type"><option value="">All cage types</option><option value="breeding">Breeding</option><option value="holding">Holding</option></select>
+    <div class="spacer"></div>
+    <button class="btn btn-purple" onclick="openImport()">↑ Import</button>
+    <button class="btn btn-outline" onclick="exportExcel()">↓ Excel</button>
+    <button class="btn btn-muted" onclick="openBatchModal()">⊞ Batch Create</button>
+    <button class="btn btn-primary" onclick="openAnimalModal()">+ Add Mouse</button>
+  </div>
+  <div class="table-wrap">
+    <table id="animal-table">
+      <thead id="animal-thead"><tr>
+        <th onclick="sortBy('cage_id')">Cage</th>
+        <th>Type</th>
+        <th onclick="sortBy('mouse_id')">Mouse ID</th>
+        <th onclick="sortBy('sex')">Sex</th>
+        <th onclick="sortBy('dob')">DOB</th>
+        <th onclick="sortBy('dob')">Age</th>
+        <th onclick="sortBy('status')">Status</th>
+        <th>Purpose</th>
+        <th onclick="sortBy('dos')">DOS</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="animal-body"></tbody>
+    </table>
+    <div class="empty" id="empty-animals" style="display:none">
+      <div class="empty-icon">🐭</div><div>No animals</div>
+      <p>Click <strong>+ Add Mouse</strong> or set up a Cohort first.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: CAGES -->
+<div class="page" id="page-cages">
+  <div class="toolbar">
+    <input type="text" id="cage-search" placeholder="Search cage ID, notes…">
+    <div style="display:flex;gap:4px">
+      <div class="tag active" data-ct="all"      onclick="setCageFilter(this)">Active</div>
+      <div class="tag" data-ct="breeding"         onclick="setCageFilter(this)">Breeding</div>
+      <div class="tag" data-ct="holding"          onclick="setCageFilter(this)">Holding</div>
+      <div class="tag" data-ct="history"          onclick="setCageFilter(this)">History</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-pink"    onclick="openCageModal('breeding')">+ Breeding Cage</button>
+    <button class="btn btn-outline" onclick="openCageModal('holding')">+ Holding Cage</button>
+  </div>
+  <!-- Active cages -->
+  <div class="cage-grid" id="cage-grid"></div>
+  <div class="empty" id="empty-cages" style="display:none;padding:40px 20px">
+    <div class="empty-icon">🏠</div><div>No cages</div>
+  </div>
+  <!-- History section — shown inline when not filtering by history -->
+  <div id="history-section" style="display:none">
+    <div class="history-section-title" id="history-section-title">Retired Cages</div>
+    <div class="cage-grid" id="history-grid"></div>
+  </div>
+</div>
+
+<!-- PAGE: COHORTS -->
+<div class="page" id="page-cohorts">
+  <div class="toolbar">
+    <span style="font-size:12px;color:var(--muted)">Define gene panels for each experiment cohort</span>
+    <div class="spacer"></div>
+    <button class="btn btn-purple" onclick="openCohortModal()">+ New Cohort</button>
+  </div>
+  <div class="cohort-grid" id="cohort-grid"></div>
+  <div class="empty" id="empty-cohorts" style="display:none;padding:70px 20px">
+    <div class="empty-icon">🧬</div><div>No cohorts yet</div>
+    <p>Create a cohort to define which genes to track for a group of animals.</p>
+  </div>
+</div>
+
+<!-- MODAL: WEAN / TRANSFER TO HOLDING -->
+<div class="overlay" id="wean-overlay">
+<div class="modal" style="width:560px">
+  <h2>🍼 WEAN &amp; TRANSFER — <span id="wean-cage-name" style="color:var(--pink)"></span></h2>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+    Select pups to transfer. They will be moved to the specified Holding cage.<br>
+    The Breeding cage Litter History will be updated automatically.
+  </div>
+
+  <!-- PUPS CHECKLIST -->
+  <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
+    Select pups to transfer
+    <span style="margin-left:10px;text-transform:none;letter-spacing:0">
+      <button class="btn btn-muted" style="font-size:10px;padding:1px 8px" onclick="weanSelectBySex('M')">Select ♂</button>
+      <button class="btn btn-muted" style="font-size:10px;padding:1px 8px" onclick="weanSelectBySex('F')">Select ♀</button>
+      <button class="btn btn-muted" style="font-size:10px;padding:1px 8px" onclick="weanSelectBySex('all')">All</button>
+      <button class="btn btn-muted" style="font-size:10px;padding:1px 8px" onclick="weanSelectBySex('none')">None</button>
+    </span>
+  </div>
+  <div id="wean-animal-list" style="max-height:220px;overflow-y:auto;margin-bottom:16px;border:1px solid var(--border);border-radius:6px"></div>
+
+  <!-- TARGET HOLDING CAGE -->
+  <div class="form-grid" style="margin-bottom:0">
+    <div class="field">
+      <label>Target Holding Cage ID *</label>
+      <input id="wean-target-cage" placeholder="e.g. W306-H01" list="holding-cage-dl">
+      <datalist id="holding-cage-dl"></datalist>
+    </div>
+    <div class="field">
+      <label>Wean Date</label>
+      <input id="wean-date" type="date">
+    </div>
+    <div class="field full">
+      <label>Notes (appended to Litter History)</label>
+      <input id="wean-notes" placeholder="e.g. Litter #2 weaned, 3M 2F to W306-H01">
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('wean-overlay')">Cancel</button>
+    <button class="btn btn-pink" onclick="applyWean()">Transfer Selected</button>
+  </div>
+</div>
+</div>
+
+
+<!-- MODAL: RETIRE CAGE -->
+<div class="overlay" id="retire-overlay">
+<div class="retire-modal">
+  <h2>🔒 RETIRE CAGE — <span id="retire-cage-name" style="color:var(--text)"></span></h2>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+    This cage will be moved to History. The cage ID will be prefixed with
+    <span style="font-family:var(--mono);color:var(--muted)">[RETIRED]</span>
+    to prevent accidental reuse. All records are preserved.
+  </div>
+  <div class="complete-field">
+    <label>Date Retired</label>
+    <input id="retire-date" type="date">
+  </div>
+  <div class="complete-field">
+    <label>Reason for Retirement</label>
+    <select id="retire-reason">
+      <option value="All animals sacrificed">All animals sacrificed</option>
+      <option value="All animals deceased">All animals deceased</option>
+      <option value="Experiment completed">Experiment completed</option>
+      <option value="Animals transferred out">Animals transferred out</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+  <div class="complete-field">
+    <label>Notes</label>
+    <input id="retire-notes" placeholder="Optional notes…">
+  </div>
+  <div id="retire-auto-badge" style="display:none;margin-bottom:14px;padding:8px 12px;background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:4px;font-size:11px;color:var(--accent)">
+    ✓ Auto-detected: all animals in this cage are no longer active
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('retire-overlay')">Cancel</button>
+    <button class="btn btn-muted" onclick="confirmRetireCage()">Retire Cage</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: CAGE BULK EDIT -->
+<div class="overlay" id="bulk-overlay">
+<div class="modal" style="width:560px">
+  <h2>BULK EDIT — <span id="bulk-cage-name" style="color:var(--accent2)"></span></h2>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="bulk-subtitle"></div>
+  <div id="bulk-animal-list" style="max-height:220px;overflow-y:auto;margin-bottom:14px;border:1px solid var(--border);border-radius:6px"></div>
+
+  <!-- OPERATION TABS -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
+    <div class="bulk-op-tab active" id="btab-status" onclick="switchBulkTab('status')">Status / DOS</div>
+    <div class="bulk-op-tab" id="btab-sacrifice" onclick="switchBulkTab('sacrifice')">Sacrifice</div>
+    <div class="bulk-op-tab" id="btab-transfer" onclick="switchBulkTab('transfer')">Transfer Plan</div>
+    <div class="bulk-op-tab" id="btab-task" onclick="switchBulkTab('task')">Complete Task</div>
+  </div>
+
+  <!-- TAB: STATUS / DOS -->
+  <div id="bulk-panel-status" class="bulk-panel">
+    <div class="form-grid">
+      <div class="field">
+        <label>Status</label>
+        <select id="bulk-status">
+          <option value="">— no change —</option>
+          <option value="active">Active</option>
+          <option value="retired">Retired</option>
+          <option value="sacrificed">Sacrificed</option>
+          <option value="deceased">Deceased</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Date of Sacrifice (DOS)</label>
+        <input id="bulk-dos" type="date">
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SACRIFICE (with full linkage) -->
+  <div id="bulk-panel-sacrifice" class="bulk-panel" style="display:none">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+      Marks all selected animals as <strong style="color:var(--danger)">sacrificed</strong>,
+      sets DOS, and marks any matching timeline task as done.
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Date of Sacrifice (DOS) *</label>
+        <input id="bulk-sac-dos" type="date">
+      </div>
+      <div class="field">
+        <label>Also mark timeline task done</label>
+        <select id="bulk-sac-task">
+          <option value="">— none —</option>
+        </select>
+      </div>
+      <div class="field full">
+        <label>Notes (appended to each animal)</label>
+        <input id="bulk-sac-notes" placeholder="e.g. Perfused, tissue collected for histology">
+      </div>
+    </div>
+    <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:4px;padding:10px 12px;font-size:11px;color:var(--danger);margin-top:6px;line-height:1.7">
+      ✓ status → sacrificed &nbsp;·&nbsp; ✓ DOS updated &nbsp;·&nbsp; ✓ timeline task done &nbsp;·&nbsp; ✓ notes logged
+    </div>
+  </div>
+
+  <!-- TAB: TRANSFER PLAN -->
+  <div id="bulk-panel-transfer" class="bulk-panel" style="display:none">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+      Sets a planned transfer date and target cage for all selected animals.
+      When the date arrives, each animal's reminder will appear in the dashboard and banner.
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Planned Transfer Date *</label>
+        <input id="bulk-transfer-date" type="date">
+      </div>
+      <div class="field">
+        <label>Target Cage ID *</label>
+        <input id="bulk-transfer-cage" placeholder="e.g. W306-H02" list="cage-datalist">
+      </div>
+    </div>
+    <div style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);border-radius:4px;padding:10px 12px;font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.7">
+      ✓ transfer_date set &nbsp;·&nbsp; ✓ target cage set &nbsp;·&nbsp; ✓ reminder appears on due date
+    </div>
+  </div>
+
+  <!-- TAB: COMPLETE TASK -->
+  <div id="bulk-panel-task" class="bulk-panel" style="display:none">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+      Marks a timeline task as done for all selected animals.
+      If the task is a <strong>sacrifice</strong> task, status and DOS are also updated automatically.
+    </div>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Task to complete</label>
+        <select id="bulk-task-done">
+          <option value="">— select task —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Completion Date</label>
+        <input id="bulk-task-date" type="date">
+      </div>
+      <div class="field full" id="bulk-task-sac-wrap" style="display:none">
+        <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:4px;padding:8px 12px;font-size:11px;color:var(--danger)">
+          ⚠ Sacrifice task detected — will also set status → sacrificed and update DOS
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('bulk-overlay')">Cancel</button>
+    <button class="btn btn-primary" onclick="applyBulkEdit()">Apply to Selected</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: ANIMAL -->
+<div class="overlay" id="animal-overlay">
+<div class="modal">
+  <h2 id="animal-modal-title">ADD MOUSE</h2>
+  <div class="form-grid">
+    <div class="field"><label>Cage ID *</label><input id="fa-cage" list="cage-datalist"><datalist id="cage-datalist"></datalist></div>
+    <div class="field"><label>Mouse ID *</label><input id="fa-id" placeholder="e.g. W306-6D_1"></div>
+    <div class="field"><label>Cohort</label>
+      <select id="fa-cohort" onchange="updateGenePanel()">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="field"><label>Sex</label>
+      <select id="fa-sex"><option value="M">♂ Male</option><option value="F">♀ Female</option><option value="?">Unknown</option></select>
+    </div>
+    <div class="field"><label>Date of Birth (DOB)</label><input id="fa-dob" type="date"></div>
+    <div class="field"><label>Status</label>
+      <select id="fa-status"><option value="active">Active</option><option value="retired">Retired</option><option value="sacrificed">Sacrificed</option><option value="deceased">Deceased</option></select>
+    </div>
+    <div class="field"><label>Date of Sacrifice (DOS)</label><input id="fa-dos" type="date"></div>
+    <div class="sdiv">Transfer Plan</div>
+    <div class="field"><label>Planned Transfer Date</label><input id="fa-transfer-date" type="date"></div>
+    <div class="field"><label>Target Cage ID</label><input id="fa-transfer-cage" placeholder="e.g. W306-H02" list="cage-datalist"></div>
+    <div class="field"><label>Strain / Background</label><input id="fa-strain" placeholder="e.g. C57BL/6J" list="strain-dl"><datalist id="strain-dl"><option value="C57BL/6J"><option value="C57BL/6N"><option value="BALB/c"><option value="FVB/N"><option value="129/Sv"></datalist></div>
+    <div class="field full"><label>Experiment Purpose</label><textarea id="fa-purpose" rows="2" placeholder="e.g. 5xFAD microglia imaging cohort, 6-month timepoint"></textarea></div>
+
+    <!-- GENE STATUS PANEL -->
+    <div class="full" id="gene-panel-wrap" style="display:none">
+      <div class="sdiv" style="margin-bottom:10px">Genotype — Tg allele &amp; WT allele per gene</div>
+      <div class="gene-status-grid" id="gene-status-grid"></div>
+    </div>
+
+    <div class="sdiv">Surgery &amp; Treatment</div>
+    <div class="field full"><label>Surgery Notes</label><textarea id="fa-surgery" rows="2" placeholder="e.g. 2024-03-05: cranial window implant (V1)"></textarea></div>
+    <div class="field full"><label>Treatment / Drug Records</label><textarea id="fa-treatment" rows="2" placeholder="e.g. 2024-04-01: tamoxifen 75 mg/kg × 5d (i.p.)"></textarea></div>
+    <div class="field full"><label>Notes</label><textarea id="fa-notes" rows="2"></textarea></div>
+
+    <!-- ANIMAL TIMELINE -->
+    <div class="full">
+      <div class="sdiv" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+        <span>Experiment Timeline</span>
+        <span id="timeline-import-btn" style="display:none">
+          <button class="btn btn-muted" style="font-size:10px;padding:2px 9px" onclick="importCohortTimeline()">↓ Import from Cohort template</button>
+        </span>
+      </div>
+      <div id="animal-timeline-editor"></div>
+      <button class="btn btn-muted" style="font-size:11px;margin-top:6px" onclick="addAnimalTimelineRow()">+ Add Task</button>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('animal-overlay')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveAnimal()">Save</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: BATCH CREATE -->
+<div class="overlay" id="batch-overlay">
+<div class="modal" style="width:560px">
+  <h2>⊞ BATCH CREATE MICE</h2>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+    Generate multiple animals sharing the same cage, DOB, and cohort.<br>
+    Gene status defaults to <span style="color:var(--purple);font-family:var(--mono)">?</span> (pending genotyping) — edit individually after creation.
+  </div>
+
+  <!-- ID PREVIEW -->
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:16px">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">ID Preview</div>
+    <div id="batch-preview" style="font-family:var(--mono);font-size:12px;color:var(--accent);line-height:1.9;min-height:22px"></div>
+  </div>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>ID Prefix *</label>
+      <input id="fb-prefix" placeholder="e.g. W306-6D" oninput="updateBatchPreview()">
+    </div>
+    <div class="field">
+      <label>Separator</label>
+      <select id="fb-sep" onchange="updateBatchPreview()">
+        <option value="_">_ underscore  (W306-6D_1)</option>
+        <option value="-">- hyphen  (W306-6D-1)</option>
+        <option value="#"># hash  (W306-6D#1)</option>
+        <option value="">none  (W306-6D1)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Start Number</label>
+      <input id="fb-start" type="number" min="1" value="1" oninput="updateBatchPreview()">
+    </div>
+    <div class="field">
+      <label>Count *</label>
+      <input id="fb-count" type="number" min="1" max="50" value="6" oninput="updateBatchPreview()">
+    </div>
+    <div class="field">
+      <label>Cage ID *</label>
+      <input id="fb-cage" placeholder="e.g. W306-6-D10" list="cage-datalist-b">
+      <datalist id="cage-datalist-b"></datalist>
+    </div>
+    <div class="field">
+      <label>Sex (shared)</label>
+      <select id="fb-sex">
+        <option value="?">Mixed / Unknown</option>
+        <option value="M">♂ All Male</option>
+        <option value="F">♀ All Female</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Date of Birth (DOB)</label>
+      <input id="fb-dob" type="date">
+    </div>
+    <div class="field">
+      <label>Cohort</label>
+      <select id="fb-cohort" onchange="updateBatchGeneNote()">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="field full">
+      <label>Experiment Purpose</label>
+      <textarea id="fb-purpose" rows="2" placeholder="e.g. 5xFAD microglia cohort, 6-month timepoint"></textarea>
+    </div>
+    <div class="field full">
+      <label>Notes (shared)</label>
+      <textarea id="fb-notes" rows="1" placeholder="e.g. Litter #2, from cage W306-6-D5"></textarea>
+    </div>
+  </div>
+
+  <div id="batch-gene-note" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(192,132,252,.08);border:1px solid rgba(192,132,252,.25);border-radius:4px;font-size:11px;color:var(--purple);font-family:var(--mono)"></div>
+
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('batch-overlay')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveBatch()">Create All</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: CAGE -->
+<div class="overlay" id="cage-overlay">
+<div class="modal">
+  <h2 id="cage-modal-title">ADD CAGE</h2>
+  <div class="form-grid">
+    <div class="field"><label>Cage ID *</label><input id="fc-id" placeholder="e.g. W306-6-D10"></div>
+    <div class="field"><label>Type</label>
+      <select id="fc-type" onchange="toggleBreedingFields()">
+        <option value="breeding">Breeding</option><option value="holding">Holding</option>
+      </select>
+    </div>
+    <div class="field"><label>Location / Rack</label><input id="fc-loc" placeholder="e.g. Rack A, shelf 2"></div>
+    <div class="field"><label>Max Capacity</label><input id="fc-cap" type="number" min="1" max="20" placeholder="5"></div>
+    <div class="field full"><label>Purpose / Project</label><input id="fc-purpose" placeholder="e.g. 5xFAD × CX3CR1 breeding"></div>
+    <div id="breeding-extra" class="full">
+      <div class="form-grid" style="margin-top:0">
+        <div class="sdiv">Breeding Info</div>
+        <div class="field"><label>Dam Mouse ID</label><input id="fc-dam" list="animal-dl"><datalist id="animal-dl"></datalist></div>
+        <div class="field"><label>Sire Mouse ID</label><input id="fc-sire" list="animal-dl2"><datalist id="animal-dl2"></datalist></div>
+        <div class="field"><label>Pairing Date</label><input id="fc-pair" type="date"></div>
+        <div class="field"><label>Expected Litter Date</label><input id="fc-litter" type="date"></div>
+        <div class="field full"><label>Litter History</label><textarea id="fc-litter-hist" rows="3" placeholder="e.g. 2024-02-10: Litter #1, 6 pups (3M 3F), weaned 2024-03-03"></textarea></div>
+      </div>
+    </div>
+    <div class="field full"><label>Notes</label><textarea id="fc-notes" rows="2"></textarea></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('cage-overlay')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveCage()">Save</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: COHORT -->
+<div class="overlay" id="cohort-overlay">
+<div class="cohort-modal" style="width:500px;max-height:92vh;overflow-y:auto">
+  <h2 id="cohort-modal-title">NEW COHORT</h2>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+    Define the gene panel for this cohort. Timeline tasks are set per-animal (with optional import from preset templates).
+  </div>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div class="field"><label>Cohort Name *</label><input id="fh-name" placeholder="e.g. 5xFAD × CX3CR1"></div>
+    <div class="field"><label>Background Strain</label><input id="fh-strain" placeholder="e.g. C57BL/6J"></div>
+    <div class="field full"><label>Description</label><input id="fh-desc" placeholder="e.g. AD model with microglia reporter, 6-month cohort"></div>
+  </div>
+
+  <!-- GENE PANEL -->
+  <div style="font-family:var(--mono);font-size:10px;color:var(--accent3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">Gene Panel</div>
+  <div class="gene-list-editor" id="gene-list-editor"></div>
+  <div class="add-gene-row" style="margin-bottom:14px">
+    <button class="btn btn-muted" style="font-size:11px" onclick="addGeneRow()">+ Add Gene</button>
+  </div>
+
+  <!-- QUICK PRESETS -->
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Quick presets</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button class="btn btn-muted" style="font-size:10px" onclick="loadPreset('5xfad_cx3cr1')">5xFAD × CX3CR1 full</button>
+      <button class="btn btn-muted" style="font-size:10px" onclick="loadPreset('5xfad_basic')">5xFAD basic</button>
+      <button class="btn btn-muted" style="font-size:10px" onclick="loadPreset('appps1')">APP/PS1</button>
+      <button class="btn btn-muted" style="font-size:10px" onclick="loadPreset('3xtg')">3xTg-AD</button>
+      <button class="btn btn-muted" style="font-size:10px" onclick="loadPreset('thy1_gcam')">Thy1-GCaMP6f</button>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('cohort-overlay')">Cancel</button>
+    <button class="btn btn-purple" onclick="saveCohort()">Save Cohort</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL: DETAIL -->
+<div class="overlay" id="detail-overlay">
+  <div class="detail-modal" id="detail-content"></div>
+</div>
+
+<!-- MODAL: IMPORT -->
+<div class="overlay" id="import-overlay">
+<div class="import-modal">
+  <h2>↑ IMPORT DATA</h2>
+  <p>Supports <strong>.xlsx</strong>, <strong>.xls</strong>, <strong>.csv</strong>.<br>
+  Files exported from MouseLog import automatically.</p>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div style="font-size:28px;margin-bottom:8px;opacity:.4">📂</div>
+    <p><strong>Click to choose file</strong> or drag &amp; drop</p>
+    <p style="margin-top:4px;font-size:11px;opacity:.6">.xlsx · .xls · .csv</p>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none">
+  <div id="import-preview-wrap" style="display:none">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Preview</div>
+    <div class="import-preview" id="import-preview"></div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Column mapping</div>
+    <div class="col-map-grid" id="col-map-grid"></div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Mode</div>
+    <div class="mode-toggle">
+      <div class="mode-btn active" id="mode-merge"   onclick="setIMode('merge')">Merge (skip duplicates)</div>
+      <div class="mode-btn"        id="mode-replace" onclick="setIMode('replace')">Replace all</div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('import-overlay')">Cancel</button>
+    <button class="btn btn-purple" id="do-import-btn" style="display:none" onclick="doImport()">Import</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+let animals=[], cages=[], cohorts=[];
+let editAnimalId=null, editCageId=null, editCohortId=null;
+let sortKey='cage_id', sortDir=1;
+let cageTypeFilter='all';
+let iRows=[], iHeaders=[], iMode='merge';
+let currentTab='animals';
+
+// ── GENE STATUS MAP: '' | '+' | '-' | 'het' | '?'
+// stored as animal.genes = { "CX3CR1-cre": "+", "5xFAD": "-", ... }
+
+const GENE_PRESETS = {
+  '5xfad_cx3cr1': {
+    name:'5xFAD × CX3CR1-cre × Fam20c-flox × Spp1-EGFP',
+    strain:'C57BL/6J',
+    desc:'AD model with microglia-specific reporter (江苏集萃 T009510)',
+    genes:['CX3CR1-cre','Fam20c-flox','Spp1-EGFP','5xFAD'],
+    milestones:[
+      {age_weeks:3,  unit:'weeks', label:'Weaning — ear tag & separate by sex'},
+      {age_weeks:8,  unit:'weeks', label:'Tamoxifen injection — 75 mg/kg × 5d i.p.'},
+      {age_weeks:16, unit:'weeks', label:'4-month check — weight & behaviour screen'},
+      {age_weeks:24, unit:'weeks', label:'6-month imaging start'},
+      {age_weeks:36, unit:'weeks', label:'9-month sacrifice (DOS)'},
+    ]
+  },
+  '5xfad_basic':{
+    name:'5xFAD',strain:'C57BL/6J',desc:'5xFAD AD model',
+    genes:['5xFAD Mut','wt'],
+    milestones:[
+      {age_weeks:3,  unit:'weeks', label:'Weaning'},
+      {age_weeks:16, unit:'weeks', label:'4-month timepoint'},
+      {age_weeks:24, unit:'weeks', label:'6-month sacrifice'},
+    ]
+  },
+  'appps1':{
+    name:'APP/PS1',strain:'C57BL/6J',desc:'APP/PS1 AD model',
+    genes:['APP','PS1'],
+    milestones:[
+      {age_weeks:3,  unit:'weeks', label:'Weaning'},
+      {age_weeks:24, unit:'weeks', label:'6-month plaque check'},
+      {age_weeks:36, unit:'weeks', label:'9-month sacrifice'},
+    ]
+  },
+  '3xtg':{
+    name:'3xTg-AD',strain:'C57BL/6J',desc:'3xTg-AD model',
+    genes:['APP (Swe)','MAPT (P301L)','PSEN1 (M146V)'],
+    milestones:[
+      {age_weeks:3,  unit:'weeks', label:'Weaning'},
+      {age_weeks:24, unit:'weeks', label:'6-month timepoint'},
+      {age_weeks:52, unit:'weeks', label:'12-month sacrifice'},
+    ]
+  },
+  'thy1_gcam':{
+    name:'Thy1-GCaMP6f',strain:'C57BL/6J',desc:'Calcium imaging line',
+    genes:['Thy1-GCaMP6f','wt'],
+    milestones:[
+      {age_weeks:3,  unit:'weeks', label:'Weaning'},
+      {age_weeks:8,  unit:'weeks', label:'Surgery window — cranial window implant'},
+      {age_weeks:10, unit:'weeks', label:'Recovery complete — start imaging'},
+    ]
+  }
+};
+
+const FIELD_DEFS=[
+  {key:'cage_id',  aliases:['cage id','cage_id','cage','笼位号']},
+  {key:'mouse_id', aliases:['mouse id','mouse_id','animal id','编号']},
+  {key:'sex',      aliases:['sex','gender','性别']},
+  {key:'dob',      aliases:['dob','date of birth','出生日期']},
+  {key:'status',   aliases:['status','状态']},
+  {key:'dos',      aliases:['dos','date of sacrifice','处死日期']},
+  {key:'purpose',  aliases:['purpose','experiment purpose','实验目的']},
+  {key:'strain',   aliases:['strain','background','品系']},
+  {key:'surgery',  aliases:['surgery','surgery records','手术记录']},
+  {key:'treatment',aliases:['treatment','treatment records','用药记录']},
+  {key:'notes',    aliases:['notes','备注']},
+];
+
+// ── API ──────────────────────────────────────────────────────────────────────
+const api={
+  get:p=>fetch(p).then(r=>r.json()),
+  post:(p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  del:p=>fetch(p,{method:'DELETE'}).then(r=>r.json()),
+};
+
+async function loadAll(){
+  setSave('saving');
+  try{
+    const d=await api.get('/api/data');
+    animals=d.animals||[]; cages=d.cages||[]; cohorts=d.cohorts||[];
+    setSave('ok'); render();
+  }catch(e){ setSave('error'); notify('Cannot connect — is server.py running?','error'); }
+}
+
+function setSave(s){
+  const dot=document.getElementById('save-dot');
+  const lbl=document.getElementById('save-label');
+  dot.className='save-dot'+(s==='saving'?' saving':s==='error'?' error':'');
+  lbl.textContent=s==='saving'?'saving…':s==='error'?'offline':'saved';
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render(){ renderAnimals(); renderCages(); renderCohorts(); renderStats(); updateSelects(); renderTodaysBanner(); if(currentTab==='dashboard') renderDashboard(); setTimeout(checkAndSuggestRetire,50); }
+
+function renderStats(){
+  document.getElementById('s-total').textContent=animals.length;
+  document.getElementById('s-active').textContent=animals.filter(a=>a.status==='active').length;
+  document.getElementById('s-breeding').textContent=cages.filter(c=>c.type==='breeding').length;
+  document.getElementById('s-holding').textContent=cages.filter(c=>c.type==='holding').length;
+}
+
+function updateSelects(){
+  // cohort filter dropdown
+  const cf=document.getElementById('f-cohort');
+  const cv=cf.value;
+  cf.innerHTML='<option value="">All cohorts</option>'+cohorts.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  cf.value=cv;
+  // cohort select in animal modal
+  const ac=document.getElementById('fa-cohort');
+  const av=ac.value;
+  ac.innerHTML='<option value="">— none —</option>'+cohorts.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  ac.value=av;
+  // cage datalist
+  const cids=[...new Set([...cages.map(c=>c.cage_id),...animals.map(a=>a.cage_id)].filter(Boolean))];
+  document.getElementById('cage-datalist').innerHTML=cids.map(c=>`<option value="${esc(c)}">`).join('');
+  // animal datalists for cage modal
+  const aids=animals.map(a=>`<option value="${esc(a.mouse_id)}">`).join('');
+  document.getElementById('animal-dl').innerHTML=aids;
+  document.getElementById('animal-dl2').innerHTML=aids;
+}
+
+// ── RENDER ANIMALS TABLE ─────────────────────────────────────────────────────
+function renderAnimals(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const cohortF=document.getElementById('f-cohort').value;
+  const sexF=document.getElementById('f-sex').value;
+  const statusF=document.getElementById('f-status').value;
+  const ctF=document.getElementById('f-cage-type').value;
+
+  // find active cohort gene list
+  const activeCohort=cohortF?cohorts.find(c=>c.id===cohortF):null;
+  const geneList=activeCohort?activeCohort.genes:getAllGenes();
+
+  // rebuild thead with gene columns
+  const thead=document.getElementById('animal-thead');
+  let geneCols=geneList.map(g=>`<th class="gene-col">${esc(g)}</th>`).join('');
+  thead.innerHTML=`<tr>
+    <th onclick="sortBy('cage_id')">Cage</th>
+    <th>Type</th>
+    <th onclick="sortBy('mouse_id')">Mouse ID</th>
+    <th onclick="sortBy('sex')">Sex</th>
+    <th onclick="sortBy('dob')">DOB</th>
+    <th onclick="sortBy('dob')">Age</th>
+    <th onclick="sortBy('status')">Status</th>
+    <th>Purpose</th>
+    ${geneCols}
+    <th onclick="sortBy('dos')">DOS</th>
+    <th></th>
+  </tr>`;
+
+  let list=animals.filter(a=>{
+    if(q&&!`${a.cage_id} ${a.mouse_id} ${a.purpose||''} ${a.strain||''}`.toLowerCase().includes(q)) return false;
+    if(cohortF&&a.cohort_id!==cohortF) return false;
+    if(sexF&&a.sex!==sexF) return false;
+    if(statusF&&a.status!==statusF) return false;
+    if(ctF){const t=cageType(a.cage_id);if(t!==ctF)return false;}
+    return true;
+  });
+  list.sort((a,b)=>{
+    const av=a[sortKey]||'',bv=b[sortKey]||'';
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+
+  const tbody=document.getElementById('animal-body');
+  tbody.innerHTML='';
+  list.forEach(a=>{
+    const ct=cageType(a.cage_id);
+    const ctBadge=ct?`<span class="cage-badge cage-${ct}">${ct}</span>`:'<span style="color:var(--muted);font-size:10px">—</span>';
+    const w=weeksOld(a.dob);
+    const ageDisp=w!==null?w+'w':ageStr(a.dob);
+    const dotC=a.status==='active'?'dot-active':a.status==='retired'||a.status==='sacrificed'?'dot-retired':'dot-deceased';
+    const purp=a.purpose?(a.purpose.length>28?a.purpose.slice(0,26)+'…':a.purpose):'—';
+    const geneCells=geneList.map(g=>{
+      const raw=(a.genes||{})[g];
+      let tg='?',wt='?';
+      if(raw&&typeof raw==='object'){tg=raw.tg||'?';wt=raw.wt||'?';}
+      else if(raw){tg=String(raw);} // legacy
+      const conc=geneConclusion(tg,wt);
+      const tgDisp=tg==='+'?'+':tg==='-'?'−':'?';
+      const wtDisp=wt==='+'?'+':wt==='-'?'−':'?';
+      return `<td class="gene-cell" title="${esc(g)}: Tg=${tg} WT=${wt}">
+        <span style="font-family:var(--mono);font-size:10px;color:${conc.color};font-weight:500">${conc.label}</span>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:3px">${tgDisp}/${wtDisp}</span>
+      </td>`;
+    }).join('');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-family:var(--mono);font-size:11px;color:var(--accent2)">${esc(a.cage_id)||'—'}</td>
+      <td>${ctBadge}</td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:500">${esc(a.mouse_id)||'—'}</td>
+      <td style="color:var(--muted)">${a.sex==='M'?'♂':a.sex==='F'?'♀':'?'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${esc(a.dob)||'—'}</td>
+      <td><span class="age-badge ${ageCls(a.dob)}">${ageDisp}</span></td>
+      <td><span class="dot ${dotC}"></span>${esc(a.status)||'active'}</td>
+      <td style="color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${esc(a.purpose)}">${esc(purp)}</td>
+      ${geneCells}
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${esc(a.dos)||'—'}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="showDetail('${a.id}')">view</button>
+        <button class="icon-btn" onclick="editAnimal('${a.id}')">edit</button>
+        <button class="icon-btn del" onclick="deleteAnimal('${a.id}')">del</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+  const empty=list.length===0;
+  document.getElementById('empty-animals').style.display=empty?'block':'none';
+  document.getElementById('animal-table').style.display=empty?'none':'';
+}
+
+function getAllGenes(){
+  const s=new Set();
+  cohorts.forEach(c=>(c.genes||[]).forEach(g=>s.add(g)));
+  return [...s];
+}
+
+// ── RENDER CAGES ─────────────────────────────────────────────────────────────
+function renderCages(){
+  const q=document.getElementById('cage-search').value.toLowerCase();
+  list=cages.filter(c=>{
+    if(cageTypeFilter==='history') return !!c.retired;  // history view: only retired
+    if(c.retired) return false;                           // active views: exclude retired
+    if(cageTypeFilter!=='all'&&c.type!==cageTypeFilter) return false;
+    if(q&&!`${c.cage_id} ${c.purpose||''} ${c.notes||''}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const grid=document.getElementById('cage-grid');
+  grid.innerHTML='';
+  list.forEach(c=>renderCageCard(c, grid, false));
+
+  // empty state
+  const empty=list.length===0;
+  document.getElementById('empty-cages').style.display=empty?'block':'none';
+  grid.style.display=empty?'none':'';
+
+  // history section
+  const historySection=document.getElementById('history-section');
+  const historyGrid=document.getElementById('history-grid');
+  if(!historyGrid) return;
+  const retiredCages=cages.filter(c=>c.retired);
+  if(cageTypeFilter==='history'){
+    historySection.style.display='none';
+  } else if(retiredCages.length>0){
+    historySection.style.display='block';
+    document.getElementById('history-section-title').textContent='Retired Cages ('+retiredCages.length+')';
+    historyGrid.innerHTML='';
+    const q2=document.getElementById('cage-search').value.toLowerCase();
+    retiredCages.filter(c=>{
+      if(q2&&!`${c.cage_id} ${c.purpose||''} ${c.retire_reason||''}`.toLowerCase().includes(q2)) return false;
+      return true;
+    }).forEach(c=>renderCageCard(c, historyGrid, true));
+  } else {
+    historySection.style.display='none';
+  }
+}
+
+function renderCageCard(c, grid, isRetired=false){
+  const occ=animals.filter(a=>a.cage_id===c.cage_id||a.cage_id===c.original_cage_id);
+  const active=occ.filter(a=>a.status==='active');
+  const cap=c.capacity?parseInt(c.capacity):5;
+
+  const occRows=occ.map(a=>{
+    const w=weeksOld(a.dob);
+    const ageLabel=w!==null?w+'w':'—';
+    const ageColor=w===null?'var(--muted)':w<12?'#86efac':w<52?'var(--accent3)':'var(--danger)';
+    const sexColor=a.sex==='M'?'var(--accent2)':a.sex==='F'?'var(--pink)':'var(--muted)';
+    const dotC=a.status==='active'?'var(--accent)':a.status==='sacrificed'||a.status==='retired'?'var(--muted)':'var(--danger)';
+    let transferBadge='';
+    if(a.transfer_date){
+      const today2=new Date(); today2.setHours(0,0,0,0);
+      const td=new Date(a.transfer_date); td.setHours(0,0,0,0);
+      const diff=Math.floor((td-today2)/86400000);
+      const overdue=diff<0;
+      transferBadge=`<span class="transfer-badge${overdue?' overdue':''}">${diff===0?'Transfer TODAY':diff>0?`Transfer in ${diff}d`:`Transfer ${-diff}d ago`} → ${esc(a.transfer_target_cage||'?')}</span>`;
+    }
+    let taskBadge='';
+    if(a.dob&&a.timeline&&a.timeline.length){
+      const today2=new Date(); today2.setHours(0,0,0,0);
+      const upcoming=a.timeline.filter(t=>!t.done&&t.label&&t.age_val).map(t=>{
+        const ds=ageToDate(t.age_val,t.age_unit||'weeks',a.dob);
+        if(!ds) return null;
+        const td2=new Date(ds); td2.setHours(0,0,0,0);
+        const diff=Math.floor((td2-today2)/86400000);
+        return {label:t.label,diff};
+      }).filter(t=>t&&t.diff>=0&&t.diff<=7).sort((a,b)=>a.diff-b.diff);
+      if(upcoming.length){
+        const t=upcoming[0];
+        taskBadge=`<span style="font-family:var(--mono);font-size:9px;color:var(--accent3);white-space:nowrap">${t.diff===0?'⚡ ':''}${esc(t.label.slice(0,20))}${t.label.length>20?'…':''} (${t.diff===0?'today':t.diff+'d'})</span>`;
+      }
+    }
+    return `<tr onclick="editAnimal('${a.id}')">
+      <td style="font-family:var(--mono);color:var(--accent2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.mouse_id)}</td>
+      <td style="color:${sexColor}">${a.sex==='M'?'♂':a.sex==='F'?'♀':'?'}</td>
+      <td style="font-family:var(--mono);color:${ageColor}">${ageLabel}</td>
+      <td><span style="width:6px;height:6px;border-radius:50%;background:${dotC};display:inline-block;margin-right:4px"></span>${esc(a.status)}</td>
+      <td>${transferBadge}${taskBadge}</td>
+    </tr>`;
+  }).join('');
+
+  const breedInfo=c.type==='breeding'?`
+    ${c.dam?`<div>Dam: <strong style="color:var(--text)">${esc(c.dam)}</strong></div>`:''}
+    ${c.sire?`<div>Sire: <strong style="color:var(--text)">${esc(c.sire)}</strong></div>`:''}
+    ${c.pair_date?`<div>Paired: ${esc(c.pair_date)}</div>`:''}
+    ${c.litter_date?`<div>Expected litter: <strong style="color:var(--accent3)">${esc(c.litter_date)}</strong></div>`:''}
+  `:'';
+
+    const retiredInfo=isRetired?('<div style="margin-bottom:8px;padding:6px 10px;background:rgba(100,116,139,.08);border-radius:4px;font-size:11px;color:var(--muted)"><span style="font-family:var(--mono);font-size:10px">RETIRED</span>'+(c.retire_date?' · '+esc(c.retire_date):'')+(c.retire_reason?' · '+esc(c.retire_reason):'')+(c.original_cage_id?'<br><span style="font-size:10px">Original ID: '+esc(c.original_cage_id)+'</span>':'')+'</div>'):'';
+  const card=document.createElement('div');
+  card.className=`cage-card ${c.type}${isRetired?' retired':''}`;
+  card.innerHTML=`
+    <div class="cage-card-header">
+      <div>
+        <div class="cage-card-id ${c.type}" style="${isRetired?'color:var(--muted)':''}">
+          ${isRetired?`<span style="font-size:9px;opacity:.7">[RETIRED] </span>`:''}${esc(c.original_cage_id||c.cage_id)}
+        </div>
+        ${c.location?`<div style="font-size:10px;color:var(--muted)">${esc(c.location)}</div>`:''}
+      </div>
+      <div class="cage-card-actions">
+        ${!isRetired&&c.type==='breeding'?`<button class="icon-btn" style="color:var(--pink);border-color:rgba(244,114,182,.4)" onclick="openWeanModal('${c.id}')">wean</button>`:''}
+        ${!isRetired?`<button class="icon-btn" onclick="openBulkEdit('${c.id}')">bulk</button>`:''}
+        ${!isRetired?`<button class="icon-btn" onclick="openRetireCage('${c.id}')" data-retire-cage="${c.id}">retire</button>`:''}
+        <button class="icon-btn" onclick="editCage('${c.id}')">edit</button>
+        <button class="icon-btn del" onclick="deleteCage('${c.id}')">del</button>
+      </div>
+    </div>
+    ${retiredInfo}
+    ${c.purpose?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${esc(c.purpose)}</div>`:''}
+    <div style="font-size:11px;color:var(--muted);line-height:1.7">${breedInfo}</div>
+    <div class="cage-stat-row">
+      <div class="cage-stat">Occupants <strong>${active.length}${cap?' / '+cap:''}</strong></div>
+      <div class="cage-stat">♂ <strong>${active.filter(a=>a.sex==='M').length}</strong></div>
+      <div class="cage-stat">♀ <strong>${active.filter(a=>a.sex==='F').length}</strong></div>
+    </div>
+    ${occ.length?`<table class="occ-table">
+      <thead><tr><th>ID</th><th>Sex</th><th>Age</th><th>Status</th><th>Pending</th></tr></thead>
+      <tbody>${occRows}</tbody>
+    </table>`:''}`;
+  grid.appendChild(card);
+}
+
+function setCageFilter(el){
+  document.querySelectorAll('[data-ct]').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  cageTypeFilter=el.dataset.ct;
+  renderCages();
+}
+
+// ── RENDER COHORTS ───────────────────────────────────────────────────────────
+function renderCohorts(){
+  const grid=document.getElementById('cohort-grid');
+  grid.innerHTML='';
+  cohorts.forEach(c=>{
+    const anCount=animals.filter(a=>a.cohort_id===c.id).length;
+    const geneTags=(c.genes||[]).map(g=>`<span class="gene-tag">${esc(g)}</span>`).join('');
+    const card=document.createElement('div');
+    card.className='cohort-card';
+    card.innerHTML=`
+      <div class="cohort-card-header">
+        <div class="cohort-name">${esc(c.name)}</div>
+        <div class="cohort-actions">
+          <button class="icon-btn" onclick="editCohort('${c.id}')">edit</button>
+          <button class="icon-btn del" onclick="deleteCohort('${c.id}')">del</button>
+        </div>
+      </div>
+      <div class="cohort-meta">
+        ${c.strain?`<div>Strain: <strong style="color:var(--text)">${esc(c.strain)}</strong></div>`:''}
+        ${c.desc?`<div>${esc(c.desc)}</div>`:''}
+        <div style="margin-top:4px">${anCount} animal${anCount!==1?'s':''} assigned</div>
+      </div>
+      <div class="gene-tags" style="margin-top:10px">${geneTags}</div>`;
+    grid.appendChild(card);
+  });
+  const empty=cohorts.length===0;
+  document.getElementById('empty-cohorts').style.display=empty?'block':'none';
+  grid.style.display=empty?'none':'';
+}
+
+// ── GENE HELPERS ─────────────────────────────────────────────────────────────
+// Storage: genes = { "CX3CR1-cre": {tg:"+"|"-"|"?", wt:"+"|"-"|"?"}, ... }
+// Conclusion: tg+ wt- → Hom | tg+ wt+ → Het | tg- wt+ → WT | else → ?
+
+function geneConclusion(tg, wt){
+  if(tg==='+'&&wt==='-') return {label:'Hom', color:'var(--accent)',   bg:'rgba(74,222,128,.15)'};
+  if(tg==='+'&&wt==='+') return {label:'Het', color:'var(--accent3)',  bg:'rgba(245,158,11,.15)'};
+  if(tg==='-'&&wt==='+') return {label:'WT',  color:'#94a3b8',         bg:'rgba(100,116,139,.15)'};
+  return                         {label:'?',   color:'var(--purple)',   bg:'rgba(192,132,252,.15)'};
+}
+
+function migrateGenes(rawGenes){
+  // Convert old format {gene: "+"} → new format {gene: {tg:"+", wt:"?"}}
+  if(!rawGenes) return {};
+  const out={};
+  for(const [k,v] of Object.entries(rawGenes)){
+    if(v&&typeof v==='object'&&('tg' in v||'wt' in v)){
+      out[k]=v; // already new format
+    } else {
+      // old format: single string value
+      const s=String(v||'?');
+      if(s==='+'||s==='-'||s==='?') out[k]={tg:s,wt:'?'};
+      else if(s==='het') out[k]={tg:'+',wt:'+'};
+      else out[k]={tg:'?',wt:'?'};
+    }
+  }
+  return out;
+}
+
+// ── GENE PANEL in animal modal ───────────────────────────────────────────────
+function updateGenePanel(existingGenesRaw){
+  const cohortId=document.getElementById('fa-cohort').value;
+  const cohort=cohorts.find(c=>c.id===cohortId);
+  const wrap=document.getElementById('gene-panel-wrap');
+  const grid=document.getElementById('gene-status-grid');
+  if(!cohort||!cohort.genes||cohort.genes.length===0){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  grid.innerHTML='';
+  const existingGenes=migrateGenes(existingGenesRaw||{});
+  cohort.genes.forEach(g=>{
+    const cur=existingGenes[g]||{tg:'?',wt:'?'};
+    const tg=cur.tg||'?', wt=cur.wt||'?';
+    const conc=geneConclusion(tg,wt);
+    const row=document.createElement('div');
+    row.className='gene-status-row';
+    row.dataset.gene=g;
+    const mkBtns=(allele,val)=>{
+      const opts=['+','-','?'];
+      return opts.map(o=>`<button class="gsb${val===o?' sel-'+(o==='+'?'pos':o==='-'?'neg':'unk'):''}"
+        data-gene="${esc(g)}" data-allele="${allele}" data-val="${o}"
+        onclick="selectGeneAllele(this)">${o==='+'?'+':o==='-'?'−':'?'}</button>`).join('');
+    };
+    row.innerHTML=`
+      <div class="gene-status-header">
+        <span class="gene-status-name">${esc(g)}</span>
+        <span class="gene-status-conclusion" data-gene-conc="${esc(g)}"
+          style="color:${conc.color};border-color:${conc.color};background:${conc.bg}">${conc.label}</span>
+      </div>
+      <div class="gene-allele-row">
+        <span class="gene-allele-label">Transgene</span>
+        <div class="gene-status-btns" data-allele-tg="${esc(g)}">${mkBtns('tg',tg)}</div>
+      </div>
+      <div class="gene-allele-row">
+        <span class="gene-allele-label">WT allele</span>
+        <div class="gene-status-btns" data-allele-wt="${esc(g)}">${mkBtns('wt',wt)}</div>
+      </div>`;
+    grid.appendChild(row);
+  });
+}
+
+function selectGeneAllele(btn){
+  const allele=btn.dataset.allele; // 'tg' or 'wt'
+  const gene=btn.dataset.gene;
+  const val=btn.dataset.val;
+  // deselect siblings in same allele row
+  btn.closest('.gene-status-btns').querySelectorAll('.gsb').forEach(b=>b.className='gsb');
+  btn.className=`gsb sel-${val==='+'?'pos':val==='-'?'neg':'unk'}`;
+  // update conclusion badge
+  const row=document.querySelector(`.gene-status-row[data-gene="${CSS.escape(gene)}"]`);
+  if(!row) return;
+  const tgSel=row.querySelector('[data-allele="tg"].gsb[class*="sel-"]');
+  const wtSel=row.querySelector('[data-allele="wt"].gsb[class*="sel-"]');
+  const tgVal=tgSel?tgSel.dataset.val:'?';
+  const wtVal=wtSel?wtSel.dataset.val:'?';
+  const conc=geneConclusion(tgVal,wtVal);
+  const badge=row.querySelector(`[data-gene-conc]`);
+  if(badge){
+    badge.textContent=conc.label;
+    badge.style.color=conc.color;
+    badge.style.borderColor=conc.color;
+    badge.style.background=conc.bg;
+  }
+}
+
+function getGeneValues(){
+  // Returns {geneName: {tg:"+", wt:"-"}, ...}
+  const result={};
+  document.querySelectorAll('.gene-status-row[data-gene]').forEach(row=>{
+    const gene=row.dataset.gene;
+    const tgSel=row.querySelector('[data-allele="tg"].gsb[class*="sel-"]');
+    const wtSel=row.querySelector('[data-allele="wt"].gsb[class*="sel-"]');
+    result[gene]={
+      tg: tgSel?tgSel.dataset.val:'?',
+      wt: wtSel?wtSel.dataset.val:'?',
+    };
+  });
+  return result;
+}
+
+// ── ANIMAL CRUD ──────────────────────────────────────────────────────────────
+function openAnimalModal(reset=true){
+  if(reset){
+    editAnimalId=null;
+    document.getElementById('animal-modal-title').textContent='ADD MOUSE';
+    ['fa-cage','fa-id','fa-dob','fa-dos','fa-transfer-date','fa-transfer-cage','fa-purpose','fa-strain','fa-surgery','fa-treatment','fa-notes'].forEach(f=>{
+      const el=document.getElementById(f);if(el)el.value='';
+    });
+    document.getElementById('fa-sex').value='M';
+    document.getElementById('fa-status').value='active';
+    document.getElementById('fa-cohort').value='';
+    document.getElementById('gene-panel-wrap').style.display='none';
+    document.getElementById('animal-timeline-editor').innerHTML='';
+    document.getElementById('timeline-import-btn').style.display='none';
+  }
+  document.getElementById('animal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('fa-cage').focus(),80);
+}
+
+function editAnimal(id){
+  const a=animals.find(x=>x.id===id);if(!a)return;
+  editAnimalId=id;
+  document.getElementById('animal-modal-title').textContent='EDIT MOUSE';
+  document.getElementById('fa-cage').value=a.cage_id||'';
+  document.getElementById('fa-id').value=a.mouse_id||'';
+  document.getElementById('fa-sex').value=a.sex||'M';
+  document.getElementById('fa-dob').value=a.dob||'';
+  document.getElementById('fa-dos').value=a.dos||'';
+  document.getElementById('fa-status').value=a.status||'active';
+  document.getElementById('fa-purpose').value=a.purpose||'';
+  document.getElementById('fa-strain').value=a.strain||'';
+  document.getElementById('fa-surgery').value=a.surgery||'';
+  document.getElementById('fa-treatment').value=a.treatment||'';
+  document.getElementById('fa-notes').value=a.notes||'';
+  document.getElementById('fa-cohort').value=a.cohort_id||'';
+  document.getElementById('fa-transfer-date').value=a.transfer_date||'';
+  document.getElementById('fa-transfer-cage').value=a.transfer_target_cage||'';
+  updateGenePanel(migrateGenes(a.genes||{}));
+  // load animal timeline
+  document.getElementById('animal-timeline-editor').innerHTML='';
+  (a.timeline||[]).forEach(t=>addAnimalTimelineRow(t));
+  // show import btn if cohort has milestones
+  const cohort=cohorts.find(c=>c.id===a.cohort_id);
+  const hasTemplate=cohort&&cohort.milestones&&cohort.milestones.length>0;
+  document.getElementById('timeline-import-btn').style.display=hasTemplate?'':'none';
+  document.getElementById('animal-overlay').classList.add('open');
+}
+
+async function saveAnimal(){
+  const cage=document.getElementById('fa-cage').value.trim();
+  const mid=document.getElementById('fa-id').value.trim();
+  if(!cage||!mid){notify('Cage ID and Mouse ID required','error');return;}
+  // collect timeline rows — store age-based, not fixed date
+  const dob=document.getElementById('fa-dob').value;
+  const timeline=[...document.querySelectorAll('.animal-task-row')].map(row=>({
+    age_val:   parseFloat(row.querySelector('.at-age').value)||0,
+    age_unit:  row.querySelector('.at-unit').value,
+    label:     row.querySelector('.at-label').value.trim(),
+    done:      row.querySelector('.at-done').checked,
+    window_days: parseInt(row.querySelector('.at-window').value)||1,
+  })).filter(t=>t.label&&t.age_val>0);
+  const obj={
+    cage_id:cage, mouse_id:mid,
+    sex:document.getElementById('fa-sex').value,
+    dob:document.getElementById('fa-dob').value,
+    dos:document.getElementById('fa-dos').value,
+    status:document.getElementById('fa-status').value,
+    purpose:document.getElementById('fa-purpose').value.trim(),
+    strain:document.getElementById('fa-strain').value.trim(),
+    surgery:document.getElementById('fa-surgery').value.trim(),
+    treatment:document.getElementById('fa-treatment').value.trim(),
+    notes:document.getElementById('fa-notes').value.trim(),
+    cohort_id:document.getElementById('fa-cohort').value,
+    transfer_date:document.getElementById('fa-transfer-date').value,
+    transfer_target_cage:document.getElementById('fa-transfer-cage').value.trim(),
+    genes:getGeneValues(),
+    timeline,
+  };
+  setSave('saving');
+  try{
+    if(editAnimalId){
+      const r=await api.post(`/api/animals/${editAnimalId}/update`,obj);
+      const i=animals.findIndex(a=>a.id===editAnimalId);animals[i]=r;
+    }else{
+      const r=await api.post('/api/animals',obj);animals.push(r);
+    }
+    setSave('ok');render();closeOverlay('animal-overlay');
+    notify(editAnimalId?'Updated ✓':'Mouse added ✓');
+  }catch(e){setSave('error');notify('Save failed','error');}
+}
+
+async function deleteAnimal(id){
+  if(!confirm('Delete this animal record?'))return;
+  await api.del(`/api/animals/${id}`);
+  animals=animals.filter(a=>a.id!==id);render();notify('Deleted','error');
+}
+
+// ── CAGE CRUD ─────────────────────────────────────────────────────────────────
+function openCageModal(type='breeding'){
+  editCageId=null;
+  document.getElementById('cage-modal-title').textContent='ADD '+(type==='breeding'?'BREEDING':'HOLDING')+' CAGE';
+  ['fc-id','fc-loc','fc-cap','fc-purpose','fc-dam','fc-sire','fc-pair','fc-litter','fc-litter-hist','fc-notes'].forEach(f=>{
+    const el=document.getElementById(f);if(el)el.value='';
+  });
+  document.getElementById('fc-type').value=type;
+  toggleBreedingFields();
+  document.getElementById('cage-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('fc-id').focus(),80);
+}
+
+function toggleBreedingFields(){
+  const t=document.getElementById('fc-type').value;
+  document.getElementById('breeding-extra').style.display=t==='breeding'?'':'none';
+}
+
+function editCage(id){
+  const c=cages.find(x=>x.id===id);if(!c)return;
+  editCageId=id;
+  document.getElementById('cage-modal-title').textContent='EDIT CAGE';
+  document.getElementById('fc-id').value=c.cage_id||'';
+  document.getElementById('fc-type').value=c.type||'holding';
+  document.getElementById('fc-loc').value=c.location||'';
+  document.getElementById('fc-cap').value=c.capacity||'';
+  document.getElementById('fc-purpose').value=c.purpose||'';
+  document.getElementById('fc-dam').value=c.dam||'';
+  document.getElementById('fc-sire').value=c.sire||'';
+  document.getElementById('fc-pair').value=c.pair_date||'';
+  document.getElementById('fc-litter').value=c.litter_date||'';
+  document.getElementById('fc-litter-hist').value=c.litter_history||'';
+  document.getElementById('fc-notes').value=c.notes||'';
+  toggleBreedingFields();
+  document.getElementById('cage-overlay').classList.add('open');
+}
+
+async function saveCage(){
+  const cid=document.getElementById('fc-id').value.trim();
+  if(!cid){notify('Cage ID required','error');return;}
+  const obj={
+    cage_id:cid, type:document.getElementById('fc-type').value,
+    location:document.getElementById('fc-loc').value.trim(),
+    capacity:document.getElementById('fc-cap').value,
+    purpose:document.getElementById('fc-purpose').value.trim(),
+    dam:document.getElementById('fc-dam').value.trim(),
+    sire:document.getElementById('fc-sire').value.trim(),
+    pair_date:document.getElementById('fc-pair').value,
+    litter_date:document.getElementById('fc-litter').value,
+    litter_history:document.getElementById('fc-litter-hist').value.trim(),
+    notes:document.getElementById('fc-notes').value.trim(),
+  };
+  setSave('saving');
+  try{
+    if(editCageId){
+      const r=await api.post(`/api/cages/${editCageId}/update`,obj);
+      const i=cages.findIndex(c=>c.id===editCageId);cages[i]=r;
+    }else{
+      const r=await api.post('/api/cages',obj);cages.push(r);
+    }
+    setSave('ok');render();closeOverlay('cage-overlay');
+    notify(editCageId?'Cage updated ✓':'Cage added ✓');
+  }catch(e){setSave('error');notify('Save failed','error');}
+}
+
+async function deleteCage(id){
+  if(!confirm('Delete this cage record?'))return;
+  await api.del(`/api/cages/${id}`);
+  cages=cages.filter(c=>c.id!==id);render();notify('Cage deleted','error');
+}
+
+// ── COHORT CRUD ──────────────────────────────────────────────────────────────
+function openCohortModal(){
+  editCohortId=null;
+  document.getElementById('cohort-modal-title').textContent='NEW COHORT';
+  document.getElementById('fh-name').value='';
+  document.getElementById('fh-strain').value='';
+  document.getElementById('fh-desc').value='';
+  document.getElementById('gene-list-editor').innerHTML='';
+  addGeneRow();
+  document.getElementById('cohort-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('fh-name').focus(),80);
+}
+
+function editCohort(id){
+  const c=cohorts.find(x=>x.id===id);if(!c)return;
+  editCohortId=id;
+  document.getElementById('cohort-modal-title').textContent='EDIT COHORT';
+  document.getElementById('fh-name').value=c.name||'';
+  document.getElementById('fh-strain').value=c.strain||'';
+  document.getElementById('fh-desc').value=c.desc||'';
+  const editor=document.getElementById('gene-list-editor');
+  editor.innerHTML='';
+  (c.genes||[]).forEach(g=>addGeneRow(g));
+  if(!(c.genes&&c.genes.length)) addGeneRow();
+  document.getElementById('cohort-overlay').classList.add('open');
+}
+
+function addGeneRow(val=''){
+  const editor=document.getElementById('gene-list-editor');
+  const row=document.createElement('div');
+  row.className='gene-list-item';
+  row.innerHTML=`<input type="text" value="${esc(val)}" placeholder="Gene name, e.g. CX3CR1-cre">
+    <button class="remove-gene" onclick="this.parentElement.remove()">×</button>`;
+  editor.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function loadPreset(key){
+  const p=GENE_PRESETS[key];if(!p)return;
+  document.getElementById('fh-name').value=p.name;
+  document.getElementById('fh-strain').value=p.strain||'';
+  document.getElementById('fh-desc').value=p.desc||'';
+  const editor=document.getElementById('gene-list-editor');
+  editor.innerHTML='';
+  p.genes.forEach(g=>addGeneRow(g));
+
+}
+
+async function saveCohort(){
+  const name=document.getElementById('fh-name').value.trim();
+  if(!name){notify('Cohort name required','error');return;}
+  const genes=[...document.querySelectorAll('#gene-list-editor input')]
+    .map(i=>i.value.trim()).filter(Boolean);
+  const obj={
+    name, strain:document.getElementById('fh-strain').value.trim(),
+    desc:document.getElementById('fh-desc').value.trim(), genes,
+  };
+  setSave('saving');
+  try{
+    if(editCohortId){
+      const r=await api.post(`/api/cohorts/${editCohortId}/update`,obj);
+      const i=cohorts.findIndex(c=>c.id===editCohortId);cohorts[i]=r;
+    }else{
+      const r=await api.post('/api/cohorts',obj);cohorts.push(r);
+    }
+    setSave('ok');render();closeOverlay('cohort-overlay');
+    notify(editCohortId?'Cohort updated ✓':'Cohort created ✓');
+  }catch(e){setSave('error');notify('Save failed','error');}
+}
+
+async function deleteCohort(id){
+  const inUse=animals.filter(a=>a.cohort_id===id).length;
+  if(!confirm(`Delete this cohort?${inUse?` (${inUse} animals assigned)`:''}`))return;
+  await api.del(`/api/cohorts/${id}`);
+  cohorts=cohorts.filter(c=>c.id!==id);render();notify('Cohort deleted','error');
+}
+
+// ── DETAIL VIEW ───────────────────────────────────────────────────────────────
+function showDetail(id){
+  const a=animals.find(x=>x.id===id);if(!a)return;
+  const cohort=cohorts.find(c=>c.id===a.cohort_id);
+  const row=(label,val)=>val?`<div class="detail-row"><span class="dk">${label}</span><span class="dv">${esc(val)}</span></div>`:'';
+  const w=weeksOld(a.dob);
+  const migratedGenes=migrateGenes(a.genes||{});
+  const geneSec=cohort&&cohort.genes&&cohort.genes.length?`
+    <div class="detail-section">
+      <h3>Genotype — ${esc(cohort.name)}</h3>
+      <div class="gene-detail-grid">
+        ${cohort.genes.map(g=>{
+          const raw=migratedGenes[g]||{tg:'?',wt:'?'};
+          const tg=raw.tg||'?', wt=raw.wt||'?';
+          const conc=geneConclusion(tg,wt);
+          const tgD=tg==='+'?'+':tg==='-'?'−':'?';
+          const wtD=wt==='+'?'+':wt==='-'?'−':'?';
+          return `<div class="gene-detail-cell">
+            <span class="gene-detail-name">${esc(g)}</span>
+            <div style="text-align:right">
+              <span class="gene-detail-val" style="color:${conc.color}">${conc.label}</span>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">Tg:${tgD} WT:${wtD}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:'';
+  document.getElementById('detail-content').innerHTML=`
+    <h2>${esc(a.mouse_id)} <span style="font-size:10px;color:var(--muted)">${esc(a.cage_id)}${cohort?' · '+esc(cohort.name):''}</span></h2>
+    <div class="detail-section">
+      <h3>Identity</h3>
+      ${row('Sex',a.sex==='M'?'♂ Male':a.sex==='F'?'♀ Female':a.sex)}
+      ${row('DOB',a.dob)}
+      ${row('Age',w!==null?w+' weeks old':ageStr(a.dob))}
+      ${row('Strain',a.strain)}
+      ${row('Status',a.status)}
+      ${row('DOS (Sacrifice)',a.dos)}
+    </div>
+    ${geneSec}
+    <div class="detail-section">
+      <h3>Experiment</h3>
+      ${row('Purpose',a.purpose)}
+    </div>
+    ${a.surgery?`<div class="detail-section"><h3>Surgery</h3><div class="detail-row"><span class="dv">${esc(a.surgery)}</span></div></div>`:''}
+    ${a.treatment?`<div class="detail-section"><h3>Treatment</h3><div class="detail-row"><span class="dv">${esc(a.treatment)}</span></div></div>`:''}
+    ${a.notes?`<div class="detail-section"><h3>Notes</h3><div class="detail-row"><span class="dv">${esc(a.notes)}</span></div></div>`:''}
+    <div class="detail-footer">
+      <button class="btn btn-danger" onclick="closeOverlay('detail-overlay')">Close</button>
+      <button class="btn btn-outline" onclick="closeOverlay('detail-overlay');editAnimal('${a.id}')">Edit</button>
+    </div>`;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportExcel(){
+  if(!animals.length){notify('No data','error');return;}
+  const allGenes=getAllGenes();
+  const rows=animals.map(a=>{
+    const cohort=cohorts.find(c=>c.id===a.cohort_id);
+    const w=weeksOld(a.dob);
+    const base={
+      'Cage ID':a.cage_id,'Cage Type':cageType(a.cage_id)||'',
+      'Mouse ID':a.mouse_id,'Cohort':cohort?cohort.name:'',
+      'Sex':a.sex,'DOB':a.dob,'Age (weeks)':w!==null?w:'',
+      'Status':a.status,'DOS':a.dos||'','Experiment Purpose':a.purpose,
+      'Strain':a.strain,'Surgery Records':a.surgery,
+      'Treatment Records':a.treatment,'Notes':a.notes,
+    };
+    const mGenes=migrateGenes(a.genes||{});
+    allGenes.forEach(g=>{
+      const v=mGenes[g]||{tg:'?',wt:'?'};
+      base[g+' (Tg)']=v.tg||'?';
+      base[g+' (WT)']=v.wt||'?';
+      base[g+' result']=geneConclusion(v.tg,v.wt).label;
+    });
+    return base;
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Animals');
+  if(cages.length){
+    const cr=cages.map(c=>({'Cage ID':c.cage_id,'Type':c.type,'Location':c.location,'Capacity':c.capacity,'Purpose':c.purpose,'Dam':c.dam,'Sire':c.sire,'Pairing Date':c.pair_date,'Expected Litter':c.litter_date,'Litter History':c.litter_history,'Notes':c.notes}));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(cr),'Cages');
+  }
+  XLSX.writeFile(wb,`mouselog_${new Date().toISOString().slice(0,10)}.xlsx`);
+  notify('Excel exported ✓');
+}
+
+// ── IMPORT ────────────────────────────────────────────────────────────────────
+function openImport(){
+  iRows=[];iHeaders=[];
+  document.getElementById('import-preview-wrap').style.display='none';
+  document.getElementById('do-import-btn').style.display='none';
+  document.getElementById('file-input').value='';
+  document.getElementById('import-overlay').classList.add('open');
+}
+function setIMode(m){
+  iMode=m;
+  document.getElementById('mode-merge').classList.toggle('active',m==='merge');
+  document.getElementById('mode-replace').classList.toggle('active',m==='replace');
+}
+function autoMap(headers){
+  const map={};
+  FIELD_DEFS.forEach(fd=>{
+    const m=headers.find(h=>fd.aliases.some(a=>h.toLowerCase().trim()===a));
+    map[fd.key]=m||'';
+  });
+  return map;
+}
+function buildColMapUI(headers,mapping){
+  const grid=document.getElementById('col-map-grid');
+  grid.innerHTML='';
+  FIELD_DEFS.forEach(fd=>{
+    const row=document.createElement('div');row.className='col-map-row';
+    const opts=['<option value="">(skip)</option>',...headers.map(h=>`<option value="${esc(h)}"${mapping[fd.key]===h?' selected':''}>${esc(h)}</option>`)].join('');
+    row.innerHTML=`<span>${fd.key}</span><select id="map-${fd.key}">${opts}</select>`;
+    grid.appendChild(row);
+  });
+}
+function excelDateToISO(v){
+  if(typeof v==='number') return new Date(Math.round((v-25569)*86400000)).toISOString().slice(0,10);
+  if(typeof v==='string'){const t=v.trim();if(/^\d{4}-\d{2}-\d{2}$/.test(t))return t;const d=new Date(t);if(!isNaN(d))return d.toISOString().slice(0,10);}
+  return String(v||'');
+}
+document.getElementById('file-input').addEventListener('change',function(){
+  const file=this.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!json||json.length<2){notify('File empty','error');return;}
+      iHeaders=json[0].map(String);
+      iRows=json.slice(1).filter(r=>r.some(c=>c!==''));
+      const mapping=autoMap(iHeaders);
+      document.getElementById('import-preview').textContent=iRows.slice(0,3).map(r=>iHeaders.slice(0,5).map((h,i)=>`${h}:${r[i]}`).join(' | ')).join('\n');
+      buildColMapUI(iHeaders,mapping);
+      document.getElementById('import-preview-wrap').style.display='block';
+      document.getElementById('do-import-btn').style.display='inline-block';
+    }catch(err){notify('Cannot read file: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+});
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f){const dt=new DataTransfer();dt.items.add(f);document.getElementById('file-input').files=dt.files;document.getElementById('file-input').dispatchEvent(new Event('change'));}});
+async function doImport(){
+  const colMap={};FIELD_DEFS.forEach(fd=>{const sel=document.getElementById('map-'+fd.key);if(sel)colMap[fd.key]=sel.value;});
+  const getVal=(row,col)=>{const idx=iHeaders.indexOf(col);return idx>=0?String(row[idx]||'').trim():'';};
+  const imported=iRows.map(row=>{
+    const a={};
+    FIELD_DEFS.forEach(fd=>{
+      const col=colMap[fd.key];let val=col?getVal(row,col):'';
+      if(fd.key==='dob'&&val&&col){const idx=iHeaders.indexOf(col);if(idx>=0)val=excelDateToISO(row[idx]);}
+      a[fd.key]=val;
+    });
+    if(!a.status)a.status='active';
+    return a;
+  }).filter(a=>a.cage_id||a.mouse_id);
+  if(!imported.length){notify('No valid rows','error');return;}
+  const r=await api.post('/api/import',{mode:iMode,animals:imported});
+  await loadAll();closeOverlay('import-overlay');
+  notify(`Imported ${r.added}${r.skipped?`, skipped ${r.skipped} duplicates`:''} ✓`);
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function weeksOld(dob){
+  if(!dob)return null;
+  const days=Math.floor((new Date()-new Date(dob))/86400000);
+  return days<0?null:Math.floor(days/7);
+}
+function ageStr(dob){
+  const w=weeksOld(dob);if(w===null)return'—';
+  if(w<1){const d=Math.floor((new Date()-new Date(dob))/86400000);return d+'d';}
+  return w+'w';
+}
+function ageCls(dob){
+  const w=weeksOld(dob);if(w===null)return'';
+  return w<12?'age-young':w<52?'age-mid':'age-old';
+}
+function cageType(cageId){
+  const c=cages.find(x=>x.cage_id===cageId);return c?c.type:null;
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function sortBy(key){if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=1;}renderAnimals();}
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='dashboard') renderDashboard();
+}
+function closeOverlay(id){document.getElementById(id).classList.remove('open');}
+
+// ── EVENT LISTENERS ───────────────────────────────────────────────────────────
+['search','f-cohort','f-sex','f-status','f-cage-type'].forEach(id=>{
+  const el=document.getElementById(id); if(!el) return;
+  el.addEventListener('input',renderAnimals);
+  el.addEventListener('change',renderAnimals);
+});
+const cageSearchEl=document.getElementById('cage-search');
+if(cageSearchEl) cageSearchEl.addEventListener('input',renderCages);
+['animal-overlay','cage-overlay','cohort-overlay','detail-overlay','import-overlay','bulk-overlay','wean-overlay','complete-overlay','retire-overlay'].forEach(id=>{
+  const el=document.getElementById(id); if(!el) return;
+  el.addEventListener('click',e=>{if(e.target.id===id)closeOverlay(id);});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){['animal-overlay','cage-overlay','cohort-overlay','detail-overlay','import-overlay','bulk-overlay','wean-overlay','complete-overlay','retire-overlay'].forEach(closeOverlay);}
+  if((e.metaKey||e.ctrlKey)&&e.key==='n'){e.preventDefault();if(currentTab==='animals')openAnimalModal();else if(currentTab==='cohorts')openCohortModal();}
+});
+
+function notify(msg,type='ok'){
+  const el=document.getElementById('notif');
+  el.textContent=msg;el.style.borderColor=type==='ok'?'var(--accent)':'var(--danger)';el.style.color=type==='ok'?'var(--accent)':'var(--danger)';
+  el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// ── ANIMAL TIMELINE EDITOR ────────────────────────────────────────────────────
+function dobForCalc(){
+  return document.getElementById('fa-dob').value||'';
+}
+
+function ageToDate(ageVal,unit,dob){
+  if(!dob||!ageVal) return '';
+  let days;
+  if(unit==='weeks')  days=Math.round(parseFloat(ageVal)*7);
+  else if(unit==='months') days=Math.round(parseFloat(ageVal)*30.44);
+  else days=Math.round(parseFloat(ageVal));
+  const d=new Date(new Date(dob).getTime()+days*86400000);
+  return d.toISOString().slice(0,10);
+}
+
+function updateRowDateDisplay(row){
+  const dob=dobForCalc();
+  const age=row.querySelector('.at-age').value;
+  const unit=row.querySelector('.at-unit').value;
+  const display=row.querySelector('.at-date-display');
+  if(!dob){display.textContent='(set DOB first)';display.style.color='var(--muted)';return;}
+  if(!age){display.textContent='';return;}
+  const d=ageToDate(age,unit,dob);
+  if(d){display.textContent='→ '+d;display.style.color='var(--accent2)';}
+}
+
+function updateAllRowDates(){
+  document.querySelectorAll('.animal-task-row').forEach(r=>updateRowDateDisplay(r));
+}
+document.getElementById('fa-dob').addEventListener('change',updateAllRowDates);
+
+function addAnimalTimelineRow(t={}){
+  const editor=document.getElementById('animal-timeline-editor');
+  const row=document.createElement('div');
+  row.className='animal-task-row';
+  row.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap';
+  const ageVal  =t.age_val  ||'';
+  const unitVal =t.age_unit ||'weeks';
+  const labelVal=t.label    ||'';
+  const doneVal =t.done     ?'checked':'';
+  const windowVal=t.window_days||1;
+  const s='background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 7px;border-radius:4px;outline:none';
+  row.innerHTML=`
+    <input class="at-done" type="checkbox" ${doneVal} title="Mark as done — click to complete with details"
+      style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;cursor:pointer"
+      onchange="handleTimelineCheckbox(this, '${esc(labelVal)}')">
+    <input class="at-age" type="number" min="0" step="0.5" value="${ageVal}"
+      style="width:58px;${s}" placeholder="Age"
+      oninput="updateRowDateDisplay(this.closest('.animal-task-row'))">
+    <select class="at-unit" style="${s};color:var(--muted)"
+      onchange="updateRowDateDisplay(this.closest('.animal-task-row'))">
+      <option value="weeks"  ${unitVal==='weeks' ?'selected':''}>wk</option>
+      <option value="months" ${unitVal==='months'?'selected':''}>mo</option>
+      <option value="days"   ${unitVal==='days'  ?'selected':''}>d</option>
+    </select>
+    <span class="at-date-display" style="font-family:var(--mono);font-size:10px;color:var(--accent2);min-width:90px"></span>
+    <input class="at-label" type="text" value="${labelVal}"
+      style="flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:12px;padding:5px 8px;border-radius:4px;outline:none"
+      placeholder="e.g. Tamoxifen 75 mg/kg x5d i.p.">
+    <span style="font-size:10px;color:var(--muted)" title="Reminder window">±</span>
+    <input class="at-window" type="number" min="0" max="14" value="${windowVal}"
+      style="width:38px;${s};color:var(--muted)" title="Show reminder N days before/after">
+    <span style="font-size:10px;color:var(--muted)">d</span>
+    <button onclick="this.closest('.animal-task-row').remove()"
+      style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">×</button>`;
+  editor.appendChild(row);
+  updateRowDateDisplay(row);
+}
+
+function importCohortTimeline(){
+  const cohortId=document.getElementById('fa-cohort').value;
+  const cohort=cohorts.find(c=>c.id===cohortId);
+  if(!cohort||!cohort.milestones||!cohort.milestones.length){
+    notify('No milestone template in this cohort','error');return;
+  }
+  cohort.milestones.forEach(m=>{
+    addAnimalTimelineRow({
+      age_val:m.age_weeks, age_unit:m.unit||'weeks',
+      label:m.label, done:false, window_days:m.window_days||1,
+    });
+  });
+  notify(`Imported ${cohort.milestones.length} tasks ✓`);
+}
+
+// Show/hide import btn when cohort changes in animal modal
+document.getElementById('fa-cohort').addEventListener('change',function(){
+  updateGenePanel();
+  const cohort=cohorts.find(c=>c.id===this.value);
+  const hasT=cohort&&cohort.milestones&&cohort.milestones.length>0;
+  document.getElementById('timeline-import-btn').style.display=hasT?'':'none';
+});
+
+// ── TODAY'S TASKS (age-based: computes target date from DOB + age_val) ─────────
+function computeTodaysTasks(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tasks=[];
+  animals.forEach(a=>{
+    if(a.status==='deceased'||a.status==='sacrificed') return;
+    // timeline tasks
+    if(a.dob&&a.timeline&&a.timeline.length){
+      a.timeline.forEach((t,tIdx)=>{
+        if(t.done||!t.label||!t.age_val) return;
+        const targetDateStr=ageToDate(t.age_val,t.age_unit||'weeks',a.dob);
+        if(!targetDateStr) return;
+        const taskDate=new Date(targetDateStr); taskDate.setHours(0,0,0,0);
+        const diff=Math.floor((today-taskDate)/86400000);
+        const win=t.window_days||1;
+        if(diff>=-win&&diff<=win){
+          tasks.push({animal:a,task:t,diff,type:'timeline',taskIdx:tIdx});
+        }
+      });
+    }
+    // transfer tasks — window ±1 day
+    if(a.transfer_date){
+      const transferDate=new Date(a.transfer_date); transferDate.setHours(0,0,0,0);
+      const diff=Math.floor((today-transferDate)/86400000);
+      if(diff>=-1&&diff<=1){
+        tasks.push({
+          animal:a,
+          task:{label:`Transfer → ${a.transfer_target_cage||'?'}`},
+          diff, type:'transfer'
+        });
+      }
+    }
+  });
+  tasks.sort((a,b)=>b.diff-a.diff);
+  return tasks;
+}
+
+function renderTodaysBanner(){
+  const tasks=computeTodaysTasks();
+  const banner=document.getElementById('today-banner');
+  const list=document.getElementById('today-tasks-list');
+  if(!tasks.length){banner.style.display='none';return;}
+  banner.style.display='block';
+  list.innerHTML=tasks.map(t=>{
+    const diffLabel=t.diff===0?'TODAY':t.diff>0?`${t.diff}d overdue`:`in ${-t.diff}d`;
+    const color=t.diff>0?'var(--danger)':t.diff===0?'var(--accent)':'var(--accent3)';
+    const taskJson=encodeURIComponent(JSON.stringify({animalId:t.animal.id,taskLabel:t.task.label,taskType:t.type,taskIdx:t.taskIdx}));
+    return `<div style="display:flex;align-items:center;gap:4px;white-space:nowrap">
+      <div style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid ${color};color:${color};background:rgba(0,0,0,.15)">
+        <span style="font-family:var(--mono)">${esc(t.animal.mouse_id)}</span>
+        <span style="color:var(--muted);margin:0 4px">·</span>${t.type==='transfer'?'🏠 ':''}${esc(t.task.label)}
+        <span style="font-family:var(--mono);margin-left:4px;font-size:10px;opacity:.8">[${diffLabel}]</span>
+      </div>
+      <button onclick="openCompleteTask('${taskJson}')"
+        style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);background:rgba(74,222,128,.1);cursor:pointer;white-space:nowrap;transition:all .15s"
+        onmouseover="this.style.background='rgba(74,222,128,.2)'" onmouseout="this.style.background='rgba(74,222,128,.1)'">✓ Done</button>
+    </div>`;
+  }).join('');
+}
+
+// ── MILESTONE EDITOR (kept for backward compat, now unused in cohort modal) ───
+
+
+
+// ── CAGE BULK EDIT ────────────────────────────────────────────────────────────
+let bulkCageId = null;
+
+let _bulkCurrentTab = 'status';
+
+function switchBulkTab(tab){
+  _bulkCurrentTab = tab;
+  ['status','sacrifice','transfer','task'].forEach(t=>{
+    document.getElementById('btab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('bulk-panel-'+t).style.display = t===tab?'':'none';
+  });
+}
+
+function openBulkEdit(cageId){
+  const cage = cages.find(c=>c.id===cageId); if(!cage) return;
+  bulkCageId = cageId;
+  document.getElementById('bulk-cage-name').textContent = cage.cage_id;
+  const occ = animals.filter(a=>a.cage_id===cage.cage_id);
+  document.getElementById('bulk-subtitle').textContent =
+    `${occ.length} animal${occ.length!==1?'s':''} in this cage — select which to update`;
+
+  // build animal checklist
+  const list = document.getElementById('bulk-animal-list');
+  list.innerHTML = '';
+  if(!occ.length){
+    list.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">No animals in this cage</div>';
+  } else {
+    const hdr = document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface2)';
+    hdr.innerHTML=`<input type="checkbox" id="bulk-select-all" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer" onchange="toggleBulkAll(this.checked)">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Select All</span>`;
+    list.appendChild(hdr);
+    occ.forEach(a=>{
+      const row = document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid rgba(42,47,66,.4);font-size:12px';
+      const dotC=a.status==='active'?'var(--accent)':a.status==='sacrificed'||a.status==='retired'?'var(--muted)':'var(--danger)';
+      const w=weeksOld(a.dob); const ageLabel=w!==null?w+'w':'—';
+      row.innerHTML=`
+        <input type="checkbox" class="bulk-check" data-id="${a.id}" checked
+          style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--accent2);width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.mouse_id)}</span>
+        <span style="color:${a.sex==='M'?'var(--accent2)':'var(--pink)'}">${a.sex==='M'?'♂':a.sex==='F'?'♀':'?'}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:32px">${ageLabel}</span>
+        <span style="font-size:10px;padding:1px 6px;border-radius:2px;background:rgba(0,0,0,.2);border:1px solid ${dotC};color:${dotC}">${esc(a.status)}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  // populate task dropdowns
+  const allTasks = [...new Set(
+    occ.flatMap(a=>(a.timeline||[]).filter(t=>!t.done&&t.label).map(t=>t.label))
+  )];
+  const taskOpts = '<option value="">— none —</option>' +
+    allTasks.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
+  document.getElementById('bulk-task-done').innerHTML = '<option value="">— select task —</option>' +
+    allTasks.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
+  document.getElementById('bulk-sac-task').innerHTML = taskOpts;
+
+  // reset fields
+  document.getElementById('bulk-status').value = '';
+  document.getElementById('bulk-dos').value = '';
+  document.getElementById('bulk-sac-dos').value = new Date().toISOString().slice(0,10);
+  document.getElementById('bulk-sac-notes').value = '';
+  document.getElementById('bulk-transfer-date').value = '';
+  document.getElementById('bulk-transfer-cage').value = '';
+  document.getElementById('bulk-task-date').value = new Date().toISOString().slice(0,10);
+
+  // reset to first tab
+  switchBulkTab('status');
+  document.getElementById('bulk-overlay').classList.add('open');
+}
+
+function toggleBulkAll(checked){
+  document.querySelectorAll('.bulk-check').forEach(cb=>cb.checked=checked);
+}
+
+// show warning when sacrifice task selected
+document.getElementById('bulk-task-done').addEventListener('change',function(){
+  const isSac = detectTaskType(this.value) === 'sacrifice';
+  document.getElementById('bulk-task-sac-wrap').style.display = isSac?'':'none';
+});
+
+async function applyBulkEdit(){
+  const selectedIds = [...document.querySelectorAll('.bulk-check:checked')].map(cb=>cb.dataset.id);
+  if(!selectedIds.length){notify('Select at least one animal','error');return;}
+  const tab = _bulkCurrentTab;
+  const today = new Date().toISOString().slice(0,10);
+  setSave('saving');
+  let updated=0;
+
+  for(const id of selectedIds){
+    const idx = animals.findIndex(a=>a.id===id);
+    if(idx<0) continue;
+    const a = JSON.parse(JSON.stringify(animals[idx]));
+
+    if(tab === 'status'){
+      const newStatus = document.getElementById('bulk-status').value;
+      const newDos    = document.getElementById('bulk-dos').value;
+      if(newStatus) a.status = newStatus;
+      if(newDos)    a.dos    = newDos;
+
+    } else if(tab === 'sacrifice'){
+      const dos      = document.getElementById('bulk-sac-dos').value || today;
+      const sacTask  = document.getElementById('bulk-sac-task').value;
+      const notes    = document.getElementById('bulk-sac-notes').value.trim();
+      a.status = 'sacrificed';
+      a.dos    = dos;
+      if(sacTask){
+        a.timeline = (a.timeline||[]).map(t=>
+          t.label===sacTask ? {...t, done:true, completed_date:dos} : t
+        );
+      }
+      if(notes){
+        a.notes = (a.notes||'').trimEnd() + (a.notes?'\n':'') +
+          `${dos}: Sacrificed — ${notes}`;
+      }
+
+    } else if(tab === 'transfer'){
+      const tDate = document.getElementById('bulk-transfer-date').value;
+      const tCage = document.getElementById('bulk-transfer-cage').value.trim();
+      if(!tDate||!tCage){notify('Transfer date and cage ID are required','error');return;}
+      a.transfer_date         = tDate;
+      a.transfer_target_cage  = tCage;
+
+    } else if(tab === 'task'){
+      const doneLabel = document.getElementById('bulk-task-done').value;
+      const taskDate  = document.getElementById('bulk-task-date').value || today;
+      if(!doneLabel){notify('Select a task to complete','error');return;}
+      const isSac = detectTaskType(doneLabel) === 'sacrifice';
+      a.timeline = (a.timeline||[]).map(t=>
+        t.label===doneLabel ? {...t, done:true, completed_date:taskDate} : t
+      );
+      if(isSac){
+        a.status = 'sacrificed';
+        a.dos    = taskDate;
+      }
+    }
+
+    try{
+      const r = await api.post(`/api/animals/${id}/update`, a);
+      animals[idx] = r;
+      updated++;
+    }catch(e){ console.error(e); }
+  }
+
+  setSave('ok');
+  render();
+  closeOverlay('bulk-overlay');
+  const tabLabels={status:'Updated',sacrifice:'Sacrificed',transfer:'Transfer plan set for',task:'Task completed for'};
+  notify(`${tabLabels[tab]||'Updated'} ${updated} animal${updated!==1?'s':''} ✓`);
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+// ── WEAN & TRANSFER ───────────────────────────────────────────────────────────
+let weanCageId = null;
+
+
+
+async function applyWean(){
+  const targetCageId=document.getElementById('wean-target-cage').value.trim();
+  const weanDate=document.getElementById('wean-date').value;
+  const notes=document.getElementById('wean-notes').value.trim();
+
+  if(!targetCageId){notify('Target Holding cage ID required','error');return;}
+
+  const selectedIds=[...document.querySelectorAll('.wean-check:checked')].map(cb=>cb.dataset.id);
+  if(!selectedIds.length){notify('Select at least one animal','error');return;}
+
+  // Verify target cage exists (warn if not, but allow — user may type new cage ID)
+  const targetCage=cages.find(c=>c.cage_id===targetCageId);
+  if(targetCage&&targetCage.type==='breeding'){
+    notify('Target cage is a Breeding cage — please use a Holding cage ID','error');return;
+  }
+
+  // Get source breeding cage
+  const srcCage=cages.find(c=>c.id===weanCageId);
+  const srcCageId=srcCage?srcCage.cage_id:'?';
+
+  // Count selected by sex for litter history entry
+  const checks=[...document.querySelectorAll('.wean-check:checked')];
+  const mCount=checks.filter(c=>c.dataset.sex==='M').length;
+  const fCount=checks.filter(c=>c.dataset.sex==='F').length;
+  const weanDateStr=weanDate||new Date().toISOString().slice(0,10);
+
+  // Build litter history note
+  const autoNote=`${weanDateStr}: Weaned ${selectedIds.length} pup${selectedIds.length!==1?'s':''}${mCount||fCount?` (${mCount}♂ ${fCount}♀)`:''} → ${targetCageId}${notes?' — '+notes:''}`;
+
+  setSave('saving');
+  let transferred=0;
+
+  try{
+    // 1. Update each selected animal's cage_id
+    for(const id of selectedIds){
+      const idx=animals.findIndex(a=>a.id===id);
+      if(idx<0) continue;
+      const updated={...animals[idx], cage_id:targetCageId};
+      const r=await api.post(`/api/animals/${id}/update`,updated);
+      animals[idx]=r;
+      transferred++;
+    }
+
+    // 2. Update breeding cage litter history
+    if(srcCage){
+      const existingHist=srcCage.litter_history||'';
+      const newHist=existingHist
+        ?(existingHist.trimEnd()+'\n'+autoNote)
+        :autoNote;
+      const updatedCage={...srcCage, litter_history:newHist};
+      const r=await api.post(`/api/cages/${srcCage.id}/update`,updatedCage);
+      const ci=cages.findIndex(c=>c.id===srcCage.id);
+      if(ci>=0) cages[ci]=r;
+    }
+
+    // 3. If target cage doesn't exist yet, offer to create it
+    if(!targetCage){
+      const create=confirm(`Holding cage "${targetCageId}" doesn't exist yet. Create it automatically?`);
+      if(create){
+        const newCage={
+          cage_id:targetCageId, type:'holding',
+          location:'', capacity:'5', purpose:'',
+          dam:'', sire:'', pair_date:'', litter_date:'',
+          litter_history:'', notes:`Created on wean from ${srcCageId} on ${weanDateStr}`,
+        };
+        const r=await api.post('/api/cages',newCage);
+        cages.push(r);
+      }
+    }
+
+    setSave('ok');
+    render();
+    closeOverlay('wean-overlay');
+    notify(`Transferred ${transferred} animal${transferred!==1?'s':''} to ${targetCageId} ✓`);
+
+  }catch(e){
+    setSave('error');
+    notify('Transfer failed: '+e.message,'error');
+  }
+}
+
+
+
+// ── MOUSE ID RENAME HELPER ────────────────────────────────────────────────────
+
+
+
+
+// ── COMPLETE TASK ─────────────────────────────────────────────────────────────
+let _completingTask = null;
+
+
+
+async function confirmCompleteTask(){
+  if(!_completingTask) return;
+  const {animal, taskIdx, taskType, detectedType} = _completingTask;
+  const today = new Date().toISOString().slice(0,10);
+  const idx = animals.findIndex(a=>a.id===animal.id);
+  if(idx<0){ notify('Animal not found','error'); return; }
+
+  // Deep copy animal
+  const updated = JSON.parse(JSON.stringify(animals[idx]));
+
+  // Mark timeline task as done
+  if(taskType==='timeline' && typeof taskIdx==='number' && updated.timeline?.[taskIdx]){
+    updated.timeline[taskIdx].done = true;
+    updated.timeline[taskIdx].completed_date = today;
+  }
+
+  // Apply side effects based on detected type
+  if(detectedType === 'sacrifice'){
+    const dos = document.getElementById('ct-dos')?.value || today;
+    const status = document.getElementById('ct-status')?.value || 'sacrificed';
+    updated.status = status;
+    updated.dos = dos;
+
+  } else if(detectedType === 'transfer'){
+    const transferDate = document.getElementById('ct-transfer-date')?.value || today;
+    const targetCage = document.getElementById('ct-target-cage')?.value.trim() || updated.transfer_target_cage || '';
+    const newMouseId = document.getElementById('ct-new-mouse-id')?.value.trim() || '';
+    const oldMouseId = updated.mouse_id;
+    // update cage
+    if(targetCage) updated.cage_id = targetCage;
+    // update mouse ID if changed
+    if(newMouseId && newMouseId !== oldMouseId) updated.mouse_id = newMouseId;
+    // clear transfer plan
+    updated.transfer_date = '';
+    updated.transfer_target_cage = '';
+    // log in notes
+    const idChangeLog = (newMouseId && newMouseId!==oldMouseId) ? ` (ID: ${oldMouseId} → ${newMouseId})` : '';
+    updated.notes = (updated.notes||'').trimEnd() +
+      (updated.notes ? '\n' : '') +
+      `${transferDate}: Transferred to cage ${targetCage}${idChangeLog}`;
+
+  } else if(detectedType === 'surgery'){
+    const surgDate = document.getElementById('ct-surgery-date')?.value || today;
+    const surgNotes = document.getElementById('ct-surgery-notes')?.value.trim() || '';
+    const entry = `${surgDate}: ${surgNotes || _completingTask.taskLabel}`;
+    updated.surgery = (updated.surgery||'').trimEnd() +
+      (updated.surgery ? '\n' : '') + entry;
+
+  } else {
+    // generic — just log completion date in notes
+    const compDate = document.getElementById('ct-generic-date')?.value || today;
+    const compNotes = document.getElementById('ct-generic-notes')?.value.trim() || '';
+    const entry = `${compDate}: Completed — ${_completingTask.taskLabel}${compNotes?' ('+compNotes+')':''}`;
+    updated.notes = (updated.notes||'').trimEnd() +
+      (updated.notes ? '\n' : '') + entry;
+  }
+
+  // transfer handled above in detectedType block
+
+  setSave('saving');
+  try{
+    const r = await api.post(`/api/animals/${animal.id}/update`, updated);
+    animals[idx] = r;
+    setSave('ok');
+    render();
+    closeOverlay('complete-overlay');
+    _completingTask = null;
+
+    // success message with summary
+    const msgs = {
+      sacrifice: `${esc(animal.mouse_id)} marked as sacrificed ✓`,
+      transfer: `${esc(animal.mouse_id)}${updated.mouse_id!==animal.mouse_id?' → '+esc(updated.mouse_id):''} transferred to ${esc(updated.cage_id)} ✓`,
+      surgery: `Surgery logged for ${esc(animal.mouse_id)} ✓`,
+      generic: `Task completed ✓`,
+    };
+    notify(msgs[detectedType]||'Task completed ✓');
+  }catch(e){
+    setSave('error');
+    notify('Failed to save: '+e.message,'error');
+  }
+}
+
+
+
+
+// ── CAGE HISTORY / RETIRE ─────────────────────────────────────────────────────
+let _retiringCageId = null;
+
+
+
+
+async function confirmRetireCage(){
+  const cage = cages.find(c=>c.id===_retiringCageId); if(!cage) return;
+  const retireDate   = document.getElementById('retire-date').value;
+  const retireReason = document.getElementById('retire-reason').value;
+  const retireNotes  = document.getElementById('retire-notes').value.trim();
+
+  // Build retired cage_id with [RETIRED] prefix
+  const originalId = cage.cage_id;
+  const retiredId  = `[RETIRED] ${originalId}`;
+
+  // Check if this cage ID is already used by another retired cage
+  const dupRetired = cages.find(c=>c.id!==cage.id&&c.cage_id===retiredId);
+  const suffix = dupRetired ? `_${retireDate}` : '';
+
+  const updated = {
+    ...cage,
+    cage_id:          retiredId + suffix,
+    original_cage_id: originalId,
+    retired:          true,
+    retire_date:      retireDate,
+    retire_reason:    retireReason,
+    retire_notes:     retireNotes,
+  };
+
+  setSave('saving');
+  try{
+    const r = await api.post(`/api/cages/${cage.id}/update`, updated);
+    const i = cages.findIndex(c=>c.id===cage.id);
+    cages[i] = r;
+    setSave('ok'); render(); closeOverlay('retire-overlay');
+    notify(`Cage ${esc(originalId)} retired ✓`);
+  }catch(e){ setSave('error'); notify('Failed to retire cage','error'); }
+}
+
+// After every render, check if any cages should be auto-suggested for retirement
+
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadAll();
+function openBatchModal(){
+  document.getElementById('fb-prefix').value='';
+  document.getElementById('fb-sep').value='_';
+  document.getElementById('fb-start').value='1';
+  document.getElementById('fb-count').value='6';
+  document.getElementById('fb-cage').value='';
+  document.getElementById('fb-sex').value='?';
+  document.getElementById('fb-dob').value='';
+  document.getElementById('fb-purpose').value='';
+  document.getElementById('fb-notes').value='';
+  document.getElementById('fb-cohort').value='';
+  document.getElementById('batch-gene-note').style.display='none';
+
+  // sync cage datalist
+  const cids=[...new Set([...cages.map(c=>c.cage_id),...animals.map(a=>a.cage_id)].filter(Boolean))];
+  document.getElementById('cage-datalist-b').innerHTML=cids.map(c=>`<option value="${esc(c)}">`).join('');
+
+  // sync cohort select
+  const cs=document.getElementById('fb-cohort');
+  const cv=cs.value;
+  cs.innerHTML='<option value="">— none —</option>'+cohorts.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  cs.value=cv;
+
+  updateBatchPreview();
+  document.getElementById('batch-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('fb-prefix').focus(),80);
+}
+
+function updateBatchPreview(){
+  const prefix=document.getElementById('fb-prefix').value.trim();
+  const sep=document.getElementById('fb-sep').value;
+  const start=parseInt(document.getElementById('fb-start').value)||1;
+  const count=parseInt(document.getElementById('fb-count').value)||0;
+  const el=document.getElementById('batch-preview');
+  if(!prefix||count<1){el.textContent='Fill in prefix and count to preview…';el.style.color='var(--muted)';return;}
+  const ids=[];
+  for(let i=0;i<Math.min(count,6);i++) ids.push(`${prefix}${sep}${start+i}`);
+  let preview=ids.join('   ');
+  if(count>6) preview+=`   … (+${count-6} more)`;
+  el.textContent=preview;
+  el.style.color='var(--accent)';
+}
+
+function updateBatchGeneNote(){
+  const cohortId=document.getElementById('fb-cohort').value;
+  const cohort=cohorts.find(c=>c.id===cohortId);
+  const el=document.getElementById('batch-gene-note');
+  if(!cohort||!cohort.genes||!cohort.genes.length){el.style.display='none';return;}
+  el.style.display='block';
+  el.textContent=`All ${cohort.genes.length} genes (${cohort.genes.join(', ')}) will be set to ? — edit each animal to assign genotype after PCR.`;
+}
+
+async function saveBatch(){
+  const prefix=document.getElementById('fb-prefix').value.trim();
+  const sep=document.getElementById('fb-sep').value;
+  const start=parseInt(document.getElementById('fb-start').value)||1;
+  const count=parseInt(document.getElementById('fb-count').value)||0;
+  const cage=document.getElementById('fb-cage').value.trim();
+
+  if(!prefix){notify('ID Prefix required','error');return;}
+  if(!cage){notify('Cage ID required','error');return;}
+  if(count<1||count>50){notify('Count must be 1–50','error');return;}
+
+  const cohortId=document.getElementById('fb-cohort').value;
+  const cohort=cohorts.find(c=>c.id===cohortId);
+
+  // build default genes: all ?
+  const defaultGenes={};
+  if(cohort&&cohort.genes) cohort.genes.forEach(g=>defaultGenes[g]={tg:'?',wt:'?'});
+
+  const shared={
+    cage_id:cage,
+    sex:document.getElementById('fb-sex').value,
+    dob:document.getElementById('fb-dob').value,
+    status:'active',
+    purpose:document.getElementById('fb-purpose').value.trim(),
+    notes:document.getElementById('fb-notes').value.trim(),
+    cohort_id:cohortId,
+    genes:{...defaultGenes},
+    surgery:'',treatment:'',strain:'',dos:'',source:'',transfer_date:'',transfer_target_cage:'',
+  };
+
+  // check for duplicate IDs
+  const existingIds=new Set(animals.map(a=>a.mouse_id));
+  const toCreate=[];
+  const skipped=[];
+  for(let i=0;i<count;i++){
+    const mid=`${prefix}${sep}${start+i}`;
+    if(existingIds.has(mid)) skipped.push(mid);
+    else toCreate.push({...shared,mouse_id:mid,genes:{...defaultGenes}});
+  }
+
+  if(toCreate.length===0){notify(`All IDs already exist (${skipped.join(', ')})`, 'error');return;}
+
+  setSave('saving');
+  try{
+    // create sequentially to preserve order
+    for(const obj of toCreate){
+      const r=await api.post('/api/animals',obj);
+      animals.push(r);
+    }
+    setSave('ok');render();closeOverlay('batch-overlay');
+    const msg=skipped.length
+      ? `Created ${toCreate.length} mice ✓  (skipped ${skipped.length} duplicate IDs)`
+      : `Created ${toCreate.length} mice ✓`;
+    notify(msg);
+  }catch(e){setSave('error');notify('Batch create failed','error');}
+}
+
+
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  renderDbStatCards();
+  renderDbTasks();
+  renderDbPendingGt();
+  renderDbSacTimeline();
+  renderDbAge();
+  renderDbLitter();
+  renderDbGt();
+}
+
+function renderDbStatCards(){
+  const active   = animals.filter(a=>a.status==='active').length;
+  const breeding = cages.filter(c=>c.type==='breeding'&&!c.retired).length;
+  const holding  = cages.filter(c=>c.type==='holding'&&!c.retired).length;
+  const pending  = computeUpcomingTasks(7).length;
+  const pendingGt= countPendingGt();
+  const sacSoon  = computeSacTimeline(30).length;
+  const cards = [
+    {n:animals.length, l:'Total Animals', color:'var(--accent)'},
+    {n:active,         l:'Active',        color:'var(--accent)'},
+    {n:breeding,       l:'Breeding',      color:'var(--pink)'},
+    {n:holding,        l:'Holding',       color:'var(--accent2)'},
+    {n:pendingGt,      l:'Pending PCR',   color:'var(--purple)'},
+    {n:sacSoon,        l:'Sac (30d)',      color:'var(--danger)'},
+  ];
+  document.getElementById('db-stat-cards').innerHTML = cards.map(c=>
+    `<div class="db-card">
+      <div class="db-card-n" style="color:${c.color}">${c.n}</div>
+      <div class="db-card-l">${c.l}</div>
+    </div>`
+  ).join('');
+}
+
+function computeUpcomingTasks(days){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const tasks=[];
+  animals.forEach(a=>{
+    if(a.status==='deceased'||a.status==='sacrificed') return;
+    // timeline tasks
+    if(a.dob){
+      (a.timeline||[]).forEach(t=>{
+        if(t.done||!t.label||!t.age_val) return;
+        const ds=ageToDate(t.age_val,t.age_unit||'weeks',a.dob);
+        if(!ds) return;
+        const td=new Date(ds); td.setHours(0,0,0,0);
+        const diff=Math.floor((td-today)/86400000);
+        const win=t.window_days||1;
+        if(diff>=-win&&diff<=days){
+          tasks.push({animal:a,task:t,diff,targetDate:ds,type:'timeline'});
+        }
+      });
+    }
+    // transfer tasks
+    if(a.transfer_date){
+      const td=new Date(a.transfer_date); td.setHours(0,0,0,0);
+      const diff=Math.floor((td-today)/86400000);
+      if(diff>=-1&&diff<=days){
+        tasks.push({
+          animal:a,
+          task:{label:`Transfer → ${a.transfer_target_cage||'?'}`},
+          diff, targetDate:a.transfer_date, type:'transfer'
+        });
+      }
+    }
+  });
+  tasks.sort((a,b)=>a.diff-b.diff);
+  return tasks;
+}
+
+function renderDbTasks(){
+  const tasks=computeUpcomingTasks(7);
+  const el=document.getElementById('db-tasks');
+  if(!tasks.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No tasks in the next 7 days 🎉</div>';
+    return;
+  }
+  el.innerHTML=tasks.slice(0,15).map(t=>{
+    const d=t.diff;
+    const color=d<0?'var(--danger)':d===0?'var(--accent)':d<=2?'var(--accent3)':'var(--muted)';
+    const label=d<0?`${-d}d overdue`:d===0?'Today':d===1?'Tomorrow':`in ${d}d`;
+    const icon=t.type==='transfer'?'🏠 ':'';
+    const taskJson=encodeURIComponent(JSON.stringify({animalId:t.animal.id,taskLabel:t.task.label,taskType:t.type,taskIdx:t.taskIdx}));
+    return `<div class="task-row">
+      <span class="task-dot" style="background:${color}"></span>
+      <span class="task-mid" onclick="switchTab('animals');editAnimal('${t.animal.id}')" style="cursor:pointer">${esc(t.animal.mouse_id)}</span>
+      <span class="task-label" onclick="switchTab('animals');editAnimal('${t.animal.id}')" style="cursor:pointer">${icon}${esc(t.task.label)}</span>
+      <span class="task-due" style="color:${color}">${label}</span>
+      <button onclick="openCompleteTask('${taskJson}')"
+        style="font-family:var(--mono);font-size:10px;padding:1px 7px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);background:rgba(74,222,128,.08);cursor:pointer;margin-left:4px;flex-shrink:0;transition:all .15s"
+        onmouseover="this.style.background='rgba(74,222,128,.18)'" onmouseout="this.style.background='rgba(74,222,128,.08)'">✓</button>
+    </div>`;
+  }).join('');
+}
+
+// ── PENDING GENOTYPING ────────────────────────────────────────────────────────
+function countPendingGt(){
+  return animals.filter(a=>{
+    if(a.status!=='active'&&a.status!=='retired') return false;
+    const genes=a.genes||{};
+    return Object.values(genes).some(v=>{
+      const g=typeof v==='object'?v:{tg:v,wt:'?'};
+      return g.tg==='?'||g.wt==='?';
+    });
+  }).length;
+}
+
+function renderDbPendingGt(){
+  const el=document.getElementById('db-pending-gt');
+  const list=animals.filter(a=>{
+    if(a.status!=='active'&&a.status!=='retired') return false;
+    const genes=a.genes||{};
+    return Object.values(genes).some(v=>{
+      const g=typeof v==='object'?v:{tg:v,wt:'?'};
+      return g.tg==='?'||g.wt==='?';
+    });
+  }).sort((a,b)=>{
+    const wa=weeksOld(a.dob)||999, wb=weeksOld(b.dob)||999;
+    return wa-wb;
+  });
+  const countEl=document.getElementById('db-pending-gt-count');
+  if(countEl) countEl.textContent=list.length?`(${list.length})`:'';
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">All genotypes confirmed ✓</div>';
+    return;
+  }
+  el.innerHTML=list.slice(0,12).map(a=>{
+    const genes=a.genes||{};
+    const pendingGenes=Object.entries(genes).filter(([k,v])=>{
+      const g=typeof v==='object'?v:{tg:v,wt:'?'};
+      return g.tg==='?'||g.wt==='?';
+    }).map(([k])=>k);
+    const w=weeksOld(a.dob);
+    return `<div class="pgt-row" onclick="switchTab('animals');editAnimal('${a.id}')">
+      <span class="pgt-mid">${esc(a.mouse_id)}</span>
+      <div class="pgt-genes">${pendingGenes.map(g=>`<span class="pgt-gene">${esc(g)}</span>`).join('')}</div>
+      <span class="pgt-age">${w!==null?w+'w':'—'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── SACRIFICE TIMELINE ────────────────────────────────────────────────────────
+function computeSacTimeline(days){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const items=[];
+  animals.forEach(a=>{
+    if(a.status==='deceased'||a.status==='sacrificed') return;
+    if(!a.dob) return;
+    (a.timeline||[]).forEach(t=>{
+      if(t.done||!t.label||!t.age_val) return;
+      if(detectTaskType(t.label)!=='sacrifice') return;
+      const ds=ageToDate(t.age_val,t.age_unit||'weeks',a.dob);
+      if(!ds) return;
+      const td=new Date(ds); td.setHours(0,0,0,0);
+      const diff=Math.floor((td-today)/86400000);
+      if(diff>=0&&diff<=days) items.push({animal:a,task:t,diff,date:ds});
+    });
+  });
+  items.sort((a,b)=>a.diff-b.diff);
+  return items;
+}
+
+function renderDbSacTimeline(){
+  const el=document.getElementById('db-sac-timeline');
+  const items=computeSacTimeline(30);
+  if(!items.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No sacrifices scheduled in the next 30 days</div>';
+    return;
+  }
+  // Group by date
+  const byDate={};
+  items.forEach(it=>{
+    if(!byDate[it.date]) byDate[it.date]=[];
+    byDate[it.date].push(it);
+  });
+  el.innerHTML=Object.entries(byDate).map(([date,group])=>{
+    const diff=group[0].diff;
+    const soon=diff<=7;
+    const label=diff===0?'Today':diff===1?'Tomorrow':`in ${diff}d`;
+    const ids=group.map(g=>g.animal.mouse_id).join(', ');
+    const short=ids.length>40?ids.slice(0,38)+'…':ids;
+    return `<div class="sac-day-row" onclick="switchTab('animals')" title="${esc(ids)}">
+      <span class="sac-date${soon?' soon':''}">${esc(date)}</span>
+      <span class="sac-ids">${esc(short)}</span>
+      <span class="sac-count">${group.length}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── BREEDING LITTER LOG ───────────────────────────────────────────────────────
+function renderDbLitter(){
+  const el=document.getElementById('db-litter');
+  const breedingCages=cages.filter(c=>c.type==='breeding'&&!c.retired&&c.litter_history);
+  if(!breedingCages.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No litter records yet</div>';
+    return;
+  }
+  // Parse litter history entries — each line is one entry
+  const allEntries=[];
+  breedingCages.forEach(c=>{
+    const lines=(c.litter_history||'').split('\n').map(l=>l.trim()).filter(Boolean);
+    lines.forEach(line=>{
+      // Try to extract date from start of line: YYYY-MM-DD or YYYY/MM/DD
+      const dateMatch=line.match(/^(\d{4}[-\/]\d{2}[-\/]\d{2})/);
+      const date=dateMatch?dateMatch[1]:'';
+      allEntries.push({cage:c, line, date});
+    });
+  });
+  // Sort by date descending (most recent first), undated at end
+  allEntries.sort((a,b)=>{
+    if(!a.date&&!b.date) return 0;
+    if(!a.date) return 1;
+    if(!b.date) return -1;
+    return b.date.localeCompare(a.date);
+  });
+  if(!allEntries.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No litter records yet</div>';
+    return;
+  }
+  el.innerHTML=allEntries.slice(0,10).map(e=>`
+    <div class="litter-row">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="litter-cage">${esc(e.cage.cage_id)}</span>
+        ${e.date?`<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${esc(e.date)}</span>`:''}
+      </div>
+      <div class="litter-entry">${esc(e.line)}</div>
+    </div>`).join('');
+}
+
+function renderDbAge(){
+  const active=animals.filter(a=>a.status==='active'&&a.dob);
+  const buckets=[
+    {label:'0–3w',  min:0,  max:3,  cls:''},
+    {label:'4–8w',  min:4,  max:8,  cls:''},
+    {label:'9–16w', min:9,  max:16, cls:''},
+    {label:'17–26w',min:17, max:26, cls:'mid'},
+    {label:'27–52w',min:27, max:52, cls:'mid'},
+    {label:'>52w',  min:53, max:9999,cls:'old'},
+  ];
+  buckets.forEach(b=>{
+    b.count=active.filter(a=>{
+      const w=weeksOld(a.dob);
+      return w!==null&&w>=b.min&&w<=b.max;
+    }).length;
+  });
+  const max=Math.max(1,...buckets.map(b=>b.count));
+  document.getElementById('db-age').innerHTML=buckets.map(b=>
+    `<div class="age-bar-row">
+      <span class="age-bar-label">${b.label}</span>
+      <div class="age-bar-track">
+        <div class="age-bar-fill ${b.cls}" style="width:${Math.round(b.count/max*100)}%"></div>
+      </div>
+      <span class="age-bar-count">${b.count}</span>
+    </div>`
+  ).join('');
+}
+
+function renderDbGt(){
+  const active=animals.filter(a=>a.status==='active');
+  const gtGroups={
+    'WT':        {color:'#94a3b8', count:0},
+    'Het (+/-)': {color:'var(--accent3)', count:0},
+    'Hom (+/+)': {color:'var(--accent)', count:0},
+    'Other/Mixed':{color:'var(--accent2)', count:0},
+  };
+  active.forEach(a=>{
+    const mg=migrateGenes(a.genes||{});
+    const vals=Object.values(mg);
+    if(!vals.length){gtGroups['Other/Mixed'].count++;return;}
+    const conclusions=vals.map(v=>geneConclusion(v.tg||'?',v.wt||'?').label);
+    if(conclusions.every(c=>c==='WT'))  gtGroups['WT'].count++;
+    else if(conclusions.every(c=>c==='Hom')) gtGroups['Hom (+/+)'].count++;
+    else if(conclusions.includes('Het')) gtGroups['Het (+/-)'].count++;
+    else gtGroups['Other/Mixed'].count++;
+  });
+  const max=Math.max(1,...Object.values(gtGroups).map(g=>g.count));
+  document.getElementById('db-gt').innerHTML=Object.entries(gtGroups).map(([label,g])=>
+    `<div class="gt-row">
+      <span class="gt-label">${label}</span>
+      <div class="gt-bar-track">
+        <div class="gt-bar-fill" style="width:${Math.round(g.count/max*100)}%;background:${g.color}"></div>
+      </div>
+      <span class="gt-count">${g.count}</span>
+    </div>`
+  ).join('');
+}
+
+
+// ── WEAN & TRANSFER ───────────────────────────────────────────────────────────
+weanCageId = null;
+
+function openWeanModal(cageId){
+  const cage = cages.find(c=>c.id===cageId);
+  if(!cage) return;
+  weanCageId = cageId;
+  document.getElementById('wean-cage-name').textContent = cage.cage_id;
+
+  // populate pup list: all active animals in this cage
+  const pups = animals.filter(a=>a.cage_id===cage.cage_id&&a.status==='active');
+  const list = document.getElementById('wean-animal-list');
+  list.innerHTML = '';
+
+  if(!pups.length){
+    list.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">No active animals in this cage</div>';
+  } else {
+    // select-all header
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface2)';
+    hdr.innerHTML=`<input type="checkbox" id="wean-select-all" checked
+      style="width:14px;height:14px;accent-color:var(--pink);cursor:pointer"
+      onchange="document.querySelectorAll('.wean-check').forEach(c=>c.checked=this.checked)">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Select All (${pups.length} animals)</span>`;
+    list.appendChild(hdr);
+
+    pups.forEach(a=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid rgba(42,47,66,.4);font-size:12px';
+      const w=weeksOld(a.dob);
+      const ageLabel=w!==null?w+'w':'—';
+      const sexColor=a.sex==='M'?'var(--accent2)':a.sex==='F'?'var(--pink)':'var(--muted)';
+      row.innerHTML=`
+        <input type="checkbox" class="wean-check" data-id="${a.id}" data-sex="${a.sex}" checked
+          style="width:14px;height:14px;accent-color:var(--pink);cursor:pointer">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--accent2);width:130px">${esc(a.mouse_id)}</span>
+        <span style="color:${sexColor};font-size:13px">${a.sex==='M'?'♂':a.sex==='F'?'♀':'?'}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${ageLabel}</span>
+        <span style="font-size:10px;color:var(--muted)">${esc(a.dob)||''}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  // populate holding cage datalist
+  const holdingCages=cages.filter(c=>c.type==='holding');
+  document.getElementById('holding-cage-dl').innerHTML=
+    holdingCages.map(c=>`<option value="${esc(c.cage_id)}">`).join('');
+
+  // default wean date = today
+  document.getElementById('wean-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('wean-target-cage').value='';
+  document.getElementById('wean-notes').value='';
+
+  document.getElementById('wean-overlay').classList.add('open');
+}
+
+function weanSelectBySex(sex){
+  document.querySelectorAll('.wean-check').forEach(cb=>{
+    if(sex==='all')  cb.checked=true;
+    else if(sex==='none') cb.checked=false;
+    else cb.checked=(cb.dataset.sex===sex);
+  });
+}
+
+async function applyWean(){
+  const targetCageId=document.getElementById('wean-target-cage').value.trim();
+  const weanDate=document.getElementById('wean-date').value;
+  const notes=document.getElementById('wean-notes').value.trim();
+
+  if(!targetCageId){notify('Target Holding cage ID required','error');return;}
+
+  const selectedIds=[...document.querySelectorAll('.wean-check:checked')].map(cb=>cb.dataset.id);
+  if(!selectedIds.length){notify('Select at least one animal','error');return;}
+
+  // Verify target cage exists (warn if not, but allow — user may type new cage ID)
+  const targetCage=cages.find(c=>c.cage_id===targetCageId);
+  if(targetCage&&targetCage.type==='breeding'){
+    notify('Target cage is a Breeding cage — please use a Holding cage ID','error');return;
+  }
+
+  // Get source breeding cage
+  const srcCage=cages.find(c=>c.id===weanCageId);
+  const srcCageId=srcCage?srcCage.cage_id:'?';
+
+  // Count selected by sex for litter history entry
+  const checks=[...document.querySelectorAll('.wean-check:checked')];
+  const mCount=checks.filter(c=>c.dataset.sex==='M').length;
+  const fCount=checks.filter(c=>c.dataset.sex==='F').length;
+  const weanDateStr=weanDate||new Date().toISOString().slice(0,10);
+
+  // Build litter history note
+  const autoNote=`${weanDateStr}: Weaned ${selectedIds.length} pup${selectedIds.length!==1?'s':''}${mCount||fCount?` (${mCount}♂ ${fCount}♀)`:''} → ${targetCageId}${notes?' — '+notes:''}`;
+
+  setSave('saving');
+  transferred=0;
+
+  try{
+    // 1. Update each selected animal's cage_id
+    for(const id of selectedIds){
+      const idx=animals.findIndex(a=>a.id===id);
+      if(idx<0) continue;
+      const updated={...animals[idx], cage_id:targetCageId};
+      const r=await api.post(`/api/animals/${id}/update`,updated);
+      animals[idx]=r;
+      transferred++;
+    }
+
+    // 2. Update breeding cage litter history
+    if(srcCage){
+      const existingHist=srcCage.litter_history||'';
+      const newHist=existingHist
+        ?(existingHist.trimEnd()+'\n'+autoNote)
+        :autoNote;
+      const updatedCage={...srcCage, litter_history:newHist};
+      const r=await api.post(`/api/cages/${srcCage.id}/update`,updatedCage);
+      const ci=cages.findIndex(c=>c.id===srcCage.id);
+      if(ci>=0) cages[ci]=r;
+    }
+
+    // 3. If target cage doesn't exist yet, offer to create it
+    if(!targetCage){
+      const create=confirm(`Holding cage "${targetCageId}" doesn't exist yet. Create it automatically?`);
+      if(create){
+        const newCage={
+          cage_id:targetCageId, type:'holding',
+          location:'', capacity:'5', purpose:'',
+          dam:'', sire:'', pair_date:'', litter_date:'',
+          litter_history:'', notes:`Created on wean from ${srcCageId} on ${weanDateStr}`,
+        };
+        const r=await api.post('/api/cages',newCage);
+        cages.push(r);
+      }
+    }
+
+    setSave('ok');
+    render();
+    closeOverlay('wean-overlay');
+    notify(`Transferred ${transferred} animal${transferred!==1?'s':''} to ${targetCageId} ✓`);
+
+  }catch(e){
+    setSave('error');
+    notify('Transfer failed: '+e.message,'error');
+  }
+}
+
+
+
+// ── MOUSE ID RENAME HELPER ────────────────────────────────────────────────────
+function splitMouseId(mouseId){
+  // Split "W306-6D_1" → {prefix:"W306-6D", sep:"_", suffix:"1"}
+  // Finds the LAST occurrence of _, -, or # as separator
+  if(!mouseId) return {prefix:mouseId, sep:'', suffix:''};
+  const m = mouseId.match(/^(.*?)([_\-#])([^_\-#]*)$/);
+  if(!m) return {prefix:mouseId, sep:'', suffix:''};
+  return {prefix:m[1], sep:m[2], suffix:m[3]};
+}
+
+function renameMouseIdForTransfer(oldMouseId, newCageId){
+  // Replace prefix with newCageId, keep sep+suffix
+  const {sep, suffix} = splitMouseId(oldMouseId);
+  if(!sep) return newCageId; // no separator found, just use cage id
+  return newCageId + sep + suffix;
+}
+
+function previewTransferRename(mouseId, newCageId){
+  if(!mouseId||!newCageId) return '';
+  const newId = renameMouseIdForTransfer(mouseId, newCageId);
+  return newId === mouseId ? '' : newId; // return empty if no change
+}
+
+
+function updateTransferPreview(oldMouseId){
+  const newCage = document.getElementById('ct-target-cage')?.value.trim()||'';
+  const preview = previewTransferRename(oldMouseId, newCage);
+  const previewEl = document.getElementById('ct-id-preview');
+  const newIdEl = document.getElementById('ct-new-mouse-id');
+  if(previewEl) previewEl.innerHTML = preview
+    ? `${esc(oldMouseId)} → <strong>${esc(preview)}</strong>`
+    : '';
+  if(newIdEl && preview) newIdEl.value = preview;
+}
+// ── COMPLETE TASK ─────────────────────────────────────────────────────────────
+_completingTask = null;
+
+function detectTaskType(label){
+  const l = label.toLowerCase();
+  if(l.includes('sacrifice')||l.includes('sac')||l.includes('dos')||l.includes('euthan')) return 'sacrifice';
+  if(l.includes('transfer')||l.includes('move')||l.startsWith('transfer →')) return 'transfer';
+  if(l.includes('wean')) return 'wean';
+  if(l.includes('surgery')||l.includes('cranial')||l.includes('implant')) return 'surgery';
+  if(l.includes('tamoxifen')||l.includes('injection')||l.includes('drug')) return 'drug';
+  return 'generic';
+}
+
+function openCompleteTask(taskJsonEncoded){
+  const info = JSON.parse(decodeURIComponent(taskJsonEncoded));
+  const animal = animals.find(a=>a.id===info.animalId);
+  if(!animal){ notify('Animal not found','error'); return; }
+
+  _completingTask = {...info, animal};
+  const taskType = info.taskType==='transfer' ? 'transfer' : detectTaskType(info.taskLabel||'');
+  _completingTask.detectedType = taskType;
+
+  // Set modal label
+  document.getElementById('complete-task-label').textContent = info.taskLabel;
+
+  // Build dynamic fields based on task type
+  const fields = document.getElementById('complete-dynamic-fields');
+  const today = new Date().toISOString().slice(0,10);
+  let fieldsHTML = '';
+  let effectsHTML = '';
+
+  if(taskType === 'sacrifice'){
+    fieldsHTML = `
+      <div class="complete-field">
+        <label>Date of Sacrifice (DOS)</label>
+        <input id="ct-dos" type="date" value="${today}">
+      </div>
+      <div class="complete-field">
+        <label>Confirm Status → Sacrificed</label>
+        <select id="ct-status">
+          <option value="sacrificed" selected>Sacrificed</option>
+          <option value="deceased">Deceased</option>
+        </select>
+      </div>`;
+    effectsHTML = `✓ Status → <strong>sacrificed</strong><br>✓ DOS → <strong>${today}</strong> (editable above)<br>✓ Task marked done`;
+
+  } else if(taskType === 'transfer'){
+    const targetCage = animal.transfer_target_cage || info.taskLabel.replace(/^transfer → /i,'') || '';
+    const previewId = previewTransferRename(animal.mouse_id, targetCage);
+    const idPreviewHtml = previewId
+      ? `<div style="font-size:11px;color:var(--accent3);margin-top:6px;font-family:var(--mono)">
+           ${esc(animal.mouse_id)} → <strong>${esc(previewId)}</strong>
+         </div>`
+      : '';
+    fieldsHTML = `
+      <div class="complete-field">
+        <label>Transfer Date</label>
+        <input id="ct-transfer-date" type="date" value="${today}">
+      </div>
+      <div class="complete-field">
+        <label>Target Cage ID</label>
+        <input id="ct-target-cage" value="${esc(targetCage)}" list="cage-datalist" placeholder="e.g. W306-H02"
+          oninput="updateTransferPreview('${esc(animal.mouse_id)}')">
+        <div id="ct-id-preview" style="font-size:11px;color:var(--accent3);margin-top:5px;font-family:var(--mono)">${previewId?`${esc(animal.mouse_id)} → <strong>${esc(previewId)}</strong>`:''}</div>
+      </div>
+      <div class="complete-field">
+        <label>New Mouse ID <span style="color:var(--muted);font-size:10px">(auto-filled, edit if needed)</span></label>
+        <input id="ct-new-mouse-id" value="${esc(previewId||animal.mouse_id)}" placeholder="New mouse ID after transfer">
+      </div>`;
+    effectsHTML = `✓ Cage ID → <strong>${esc(targetCage)||'see above'}</strong><br>✓ Mouse ID → <strong>${esc(previewId||animal.mouse_id)}</strong><br>✓ Transfer plan cleared<br>✓ Task marked done`;
+
+  } else if(taskType === 'surgery'){
+    fieldsHTML = `
+      <div class="complete-field">
+        <label>Surgery Date</label>
+        <input id="ct-surgery-date" type="date" value="${today}">
+      </div>
+      <div class="complete-field">
+        <label>Surgery Notes (appended)</label>
+        <input id="ct-surgery-notes" placeholder="e.g. Cranial window, V1 left hemisphere">
+      </div>`;
+    effectsHTML = `✓ Surgery notes updated with date<br>✓ Task marked done`;
+
+  } else {
+    fieldsHTML = `
+      <div class="complete-field">
+        <label>Completion Date</label>
+        <input id="ct-generic-date" type="date" value="${today}">
+      </div>
+      <div class="complete-field">
+        <label>Notes (optional)</label>
+        <input id="ct-generic-notes" placeholder="Add any notes…">
+      </div>`;
+    effectsHTML = `✓ Task marked done<br>✓ Completion logged in timeline`;
+  }
+
+  fields.innerHTML = fieldsHTML;
+  document.getElementById('complete-effects-wrap').style.display = 'block';
+  document.getElementById('complete-effects-list').innerHTML = effectsHTML;
+  document.getElementById('complete-overlay').classList.add('open');
+}
+
+async function confirmCompleteTask(){
+  if(!_completingTask) return;
+  const {animal, taskIdx, taskType, detectedType} = _completingTask;
+  const today = new Date().toISOString().slice(0,10);
+  const idx = animals.findIndex(a=>a.id===animal.id);
+  if(idx<0){ notify('Animal not found','error'); return; }
+
+  // Deep copy animal
+  const updated = JSON.parse(JSON.stringify(animals[idx]));
+
+  // Mark timeline task as done
+  if(taskType==='timeline' && typeof taskIdx==='number' && updated.timeline?.[taskIdx]){
+    updated.timeline[taskIdx].done = true;
+    updated.timeline[taskIdx].completed_date = today;
+  }
+
+  // Apply side effects based on detected type
+  if(detectedType === 'sacrifice'){
+    const dos = document.getElementById('ct-dos')?.value || today;
+    const status = document.getElementById('ct-status')?.value || 'sacrificed';
+    updated.status = status;
+    updated.dos = dos;
+
+  } else if(detectedType === 'transfer'){
+    const transferDate = document.getElementById('ct-transfer-date')?.value || today;
+    const targetCage = document.getElementById('ct-target-cage')?.value.trim() || updated.transfer_target_cage || '';
+    const newMouseId = document.getElementById('ct-new-mouse-id')?.value.trim() || '';
+    const oldMouseId = updated.mouse_id;
+    // update cage
+    if(targetCage) updated.cage_id = targetCage;
+    // update mouse ID if changed
+    if(newMouseId && newMouseId !== oldMouseId) updated.mouse_id = newMouseId;
+    // clear transfer plan
+    updated.transfer_date = '';
+    updated.transfer_target_cage = '';
+    // log in notes
+    const idChangeLog = (newMouseId && newMouseId!==oldMouseId) ? ` (ID: ${oldMouseId} → ${newMouseId})` : '';
+    updated.notes = (updated.notes||'').trimEnd() +
+      (updated.notes ? '\n' : '') +
+      `${transferDate}: Transferred to cage ${targetCage}${idChangeLog}`;
+
+  } else if(detectedType === 'surgery'){
+    const surgDate = document.getElementById('ct-surgery-date')?.value || today;
+    const surgNotes = document.getElementById('ct-surgery-notes')?.value.trim() || '';
+    const entry = `${surgDate}: ${surgNotes || _completingTask.taskLabel}`;
+    updated.surgery = (updated.surgery||'').trimEnd() +
+      (updated.surgery ? '\n' : '') + entry;
+
+  } else {
+    // generic — just log completion date in notes
+    const compDate = document.getElementById('ct-generic-date')?.value || today;
+    const compNotes = document.getElementById('ct-generic-notes')?.value.trim() || '';
+    const entry = `${compDate}: Completed — ${_completingTask.taskLabel}${compNotes?' ('+compNotes+')':''}`;
+    updated.notes = (updated.notes||'').trimEnd() +
+      (updated.notes ? '\n' : '') + entry;
+  }
+
+  // transfer handled above in detectedType block
+
+  setSave('saving');
+  try{
+    const r = await api.post(`/api/animals/${animal.id}/update`, updated);
+    animals[idx] = r;
+    setSave('ok');
+    render();
+    closeOverlay('complete-overlay');
+    _completingTask = null;
+
+    // success message with summary
+    const msgs = {
+      sacrifice: `${esc(animal.mouse_id)} marked as sacrificed ✓`,
+      transfer: `${esc(animal.mouse_id)}${updated.mouse_id!==animal.mouse_id?' → '+esc(updated.mouse_id):''} transferred to ${esc(updated.cage_id)} ✓`,
+      surgery: `Surgery logged for ${esc(animal.mouse_id)} ✓`,
+      generic: `Task completed ✓`,
+    };
+    notify(msgs[detectedType]||'Task completed ✓');
+  }catch(e){
+    setSave('error');
+    notify('Failed to save: '+e.message,'error');
+  }
+}
+
+
+function handleTimelineCheckbox(checkbox, taskLabel){
+  if(!checkbox.checked) return; // unchecking does nothing special
+  // prevent default check — we'll set it after confirmation
+  checkbox.checked = false;
+  // find which animal is being edited
+  if(!editAnimalId){ checkbox.checked=true; return; } // fallback if no animal context
+  // find task index
+  const rows=[...document.querySelectorAll('.animal-task-row')];
+  const rowEl=checkbox.closest('.animal-task-row');
+  const taskIdx=rows.indexOf(rowEl);
+  const taskJson=encodeURIComponent(JSON.stringify({
+    animalId:editAnimalId,
+    taskLabel:taskLabel,
+    taskType:'timeline',
+    taskIdx:taskIdx,
+  }));
+  openCompleteTask(taskJson);
+}
+
+
+// ── CAGE HISTORY / RETIRE ─────────────────────────────────────────────────────
+_retiringCageId = null;
+
+function isCageRetirable(cage){
+  // Check if all animals in this cage are no longer active
+  const occ = animals.filter(a=>a.cage_id===cage.cage_id);
+  if(!occ.length) return false;
+  return occ.every(a=>['sacrificed','deceased','retired'].includes(a.status));
+}
+
+
+function openRetireCage(cageId){
+  const cage = cages.find(c=>c.id===cageId); if(!cage) return;
+  _retiringCageId = cageId;
+  document.getElementById('retire-cage-name').textContent = cage.cage_id;
+  document.getElementById('retire-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('retire-notes').value = '';
+  // Auto-detect reason
+  const occ = animals.filter(a=>a.cage_id===cage.cage_id);
+  const allSac = occ.every(a=>a.status==='sacrificed');
+  const allDead = occ.every(a=>a.status==='deceased');
+  const noActive = occ.every(a=>a.status!=='active');
+  if(allSac) document.getElementById('retire-reason').value='All animals sacrificed';
+  else if(allDead) document.getElementById('retire-reason').value='All animals deceased';
+  // Show auto-detected badge
+  const autoBadge = document.getElementById('retire-auto-badge');
+  autoBadge.style.display = noActive && occ.length ? 'block' : 'none';
+  document.getElementById('retire-overlay').classList.add('open');
+}
+
+async function confirmRetireCage(){
+  const cage = cages.find(c=>c.id===_retiringCageId); if(!cage) return;
+  const retireDate   = document.getElementById('retire-date').value;
+  const retireReason = document.getElementById('retire-reason').value;
+  const retireNotes  = document.getElementById('retire-notes').value.trim();
+
+  // Build retired cage_id with [RETIRED] prefix
+  const originalId = cage.cage_id;
+  const retiredId  = `[RETIRED] ${originalId}`;
+
+  // Check if this cage ID is already used by another retired cage
+  const dupRetired = cages.find(c=>c.id!==cage.id&&c.cage_id===retiredId);
+  const suffix = dupRetired ? `_${retireDate}` : '';
+
+  const updated = {
+    ...cage,
+    cage_id:          retiredId + suffix,
+    original_cage_id: originalId,
+    retired:          true,
+    retire_date:      retireDate,
+    retire_reason:    retireReason,
+    retire_notes:     retireNotes,
+  };
+
+  setSave('saving');
+  try{
+    const r = await api.post(`/api/cages/${cage.id}/update`, updated);
+    const i = cages.findIndex(c=>c.id===cage.id);
+    cages[i] = r;
+    setSave('ok'); render(); closeOverlay('retire-overlay');
+    notify(`Cage ${esc(originalId)} retired ✓`);
+  }catch(e){ setSave('error'); notify('Failed to retire cage','error'); }
+}
+
+// After every render, check if any cages should be auto-suggested for retirement
+function checkAndSuggestRetire(){
+  // highlight retire buttons for cages where all animals are inactive
+  cages.filter(c=>!c.retired).forEach(c=>{
+    if(!isCageRetirable(c)) return;
+    const btn = document.querySelector(`button[data-retire-cage="${CSS.escape(c.id)}"]`);
+    if(btn){
+      btn.style.borderColor='var(--accent3)';
+      btn.style.color='var(--accent3)';
+      btn.title='All animals done — consider retiring';
+    }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadAll();
+</script>
+
+<!-- MODAL: COMPLETE TASK -->
+<div class="overlay" id="complete-overlay">
+<div class="complete-modal">
+  <h2>✓ COMPLETE TASK</h2>
+  <div class="complete-task-label" id="complete-task-label"></div>
+
+  <!-- dynamic fields injected here -->
+  <div id="complete-dynamic-fields"></div>
+
+  <!-- effects preview -->
+  <div id="complete-effects-wrap" style="display:none">
+    <div class="complete-effects-title">Changes that will be applied</div>
+    <div class="complete-effects" id="complete-effects-list"></div>
+  </div>
+
+  <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:16px">
+    Completed date &amp; notes will be logged in the animal's timeline.
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-danger" onclick="closeOverlay('complete-overlay')">Cancel</button>
+    <button class="btn btn-primary" id="complete-confirm-btn" onclick="confirmCompleteTask()">Mark Complete</button>
+  </div>
+</div>
+</div>
+</body>
+</html>
